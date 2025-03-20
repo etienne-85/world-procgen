@@ -11,5 +11,11 @@
   "devDependencies": {
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
+  },
+  "dependencies": {
+    "@aresrpg/aresrpg-engine": "^2.7.8",
+    "@aresrpg/aresrpg-world": "../aresrpg-world",
+    "@types/three": "^0.174.0",
+    "three": "^0.174.0"
   }
 }
