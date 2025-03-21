@@ -27,10 +27,9 @@ import './dev_tools'
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { init_chunks_polling_service, init_voxel_engine, setupLighting } from './demo_setup';
-import { BlockMode, ChunkStub, parseChunkKey, parseThreeStub } from '@aresrpg/aresrpg-world';
+import { BlockMode, BlockType, parseChunkKey, parseThreeStub } from '@aresrpg/aresrpg-world';
 import { voxelEncoder } from '@aresrpg/aresrpg-engine'
 import { Vector3 } from 'three';
-import { BlockType } from '../../aresrpg-world/src';
 import { world_dev_tools } from './dev_tools';
 
 const init_scene = () => {
@@ -81,7 +80,7 @@ export const chunk_data_encoder = (value: BlockType, mode = BlockMode.REGULAR) =
   return voxelEncoder.encodeEmpty()
 }
 
-export const format_chunk_data = (chunk_data: ChunkStub, skip_encoding = false) => {
+export const format_chunk_data = (chunk_data, skip_encoding = false) => {
   const { metadata, rawdata } = chunk_data
 
   const id = parseChunkKey(metadata.chunkKey)
@@ -192,5 +191,3 @@ const show_board = async () => {
   window.world_dev_tools.api.render_board_chunks(board_chunks)
   console.log(board_chunks)
 }
-
-create_board()

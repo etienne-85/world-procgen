@@ -1,14 +1,14 @@
 import { BoardCacheProvider, BoardProvider, WorkerPool } from "@aresrpg/aresrpg-world"
 import { Vector3 } from "three"
 import { worldDemoEnv } from "./demo_setup"
-import workerUrl from '@aresrpg/aresrpg-world/worker?url'
+// import workerUrl from '@aresrpg/aresrpg-world/worker?url'
 import { chunk_data_encoder } from "./world_demo"
 
 export async function create_board(position = new Vector3()) {
     // seems the boardprocessor is made to have a single instance so we have to call that each time
     // and it will erase the previous instance
     const board_dedicated_worker_pool = new WorkerPool()
-    board_dedicated_worker_pool.initPoolEnv(1, worldDemoEnv, workerUrl)
+    board_dedicated_worker_pool.initPoolEnv(1, worldDemoEnv)
     const cache_prov = new BoardCacheProvider(board_dedicated_worker_pool, worldDemoEnv)
     const board_processor = new BoardProvider(
       position,

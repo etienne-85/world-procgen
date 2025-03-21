@@ -1,8 +1,5 @@
-import { BLOCKS_COLOR_MAPPING } from "../../aresrpg-world/test/configs/blocks_mappings"
-import { getWorldDemoEnv } from '../../aresrpg-world/test/configs/world_demo_setup'
-import { chunksWsClient } from '../../aresrpg-world/test/chunks_over_ws_client'
 import { WorkerPool, BlocksProcessing, ChunksPolling, getPatchId, asVect2 } from '@aresrpg/aresrpg-world';
-import workerUrl from '@aresrpg/aresrpg-world/worker?url'
+// import workerUrl from '@aresrpg/aresrpg-world/worker?url'
 import {
     ClutterViewer,
     EComputationMethod,
@@ -17,6 +14,9 @@ import {
 
 
 import { AmbientLight, Color, DirectionalLight, PCFSoftShadowMap, Vector2, Vector3 } from 'three'
+import { BLOCKS_COLOR_MAPPING } from '../../aresrpg-world/test/configs/blocks_mappings';
+import { getWorldDemoEnv } from '../../aresrpg-world/test/configs/world_demo_setup';
+import { chunksWsClient } from '../../aresrpg-world/test/remote-services/chunks_over_ws_client';
 
 export const chunk_size = { xz: 64, y: 64 }
 const altitude = { min: -1, max: 400 }
@@ -33,8 +33,8 @@ console.log(blocks_color_mapping)
 export const worldDemoEnv = getWorldDemoEnv()
 
 // use dedicated workerpool for LOD
-const lod_workerpool = new WorkerPool
-lod_workerpool.initPoolEnv(4, worldDemoEnv, workerUrl)
+const lod_workerpool = new WorkerPool('lod_worker')
+lod_workerpool.initPoolEnv(1, worldDemoEnv)
 
 
 export function init_voxel_engine() {
@@ -165,16 +165,11 @@ export function init_voxel_engine() {
 
 export const init_chunks_polling_service = on_chunk_ready => {
     let is_remote_available = false
-    const { patchViewRanges } = worldDemoEnv.rawSettings
-    const chunks_vertical_range = worldDemoEnv.getChunksVerticalRange()
-    const chunks_polling = new ChunksPolling(
-        patchViewRanges,
-        chunks_vertical_range,
-    )
+    const chunks_polling = new ChunksPolling(worldDemoEnv.rawSettings.patchViewRanges, worldDemoEnv.rawSettings.chunks.verticalRange)
     // skip compression for local gen
     chunks_polling.skipBlobCompression = true
     // create workerpool to produce chunks locally
-    const chunks_workerpool = new WorkerPool()
+    const chunks_workerpool = new WorkerPool('chunks_worker')
     const get_visible_chunk_ids = chunks_polling.getVisibleChunkIds
     // try using remote source first
     const WS_URL = 'ws://localhost:3000'
@@ -194,7 +189,7 @@ export const init_chunks_polling_service = on_chunk_ready => {
                 `chunks stream client failed to start on ${WS_URL}, fallbacking to local gen `,
             )
             // init workerpool to produce chunks locally
-            chunks_workerpool.initPoolEnv(4, worldDemoEnv, workerUrl).then(() => {
+            chunks_workerpool.initPoolEnv(4, worldDemoEnv).then(() => {
                 console.log(`local chunks workerpool ready`)
             })
         })
@@ -271,3 +266,4 @@ export const setupLighting = (renderer, scene) => {
     dirLight.color = lightColor;
     dirLight.intensity = 3;
 }
+
