@@ -16,6 +16,7 @@
     "@aresrpg/aresrpg-engine": "^2.7.8",
     "@aresrpg/aresrpg-world": "../aresrpg-world",
     "@types/three": "^0.174.0",
+    "camera-controls": "^2.10.0",
     "three": "^0.174.0"
   }
 }
