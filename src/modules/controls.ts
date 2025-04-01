@@ -2,19 +2,27 @@ import * as THREE from 'three';
 import { PerspectiveCamera, Vector3, WebGLRenderer } from 'three';
 import CameraControls from 'camera-controls';
 import { CAMERA_MAX_DISTANCE, CAMERA_MIN_DISTANCE } from '../demo_settings';
+import { App } from '../app';
 
 CameraControls.install({ THREE: THREE });
 
 export const init_controls = (camera: PerspectiveCamera, renderer: WebGLRenderer) => {
-    const camera_controls = new CameraControls(camera, renderer.domElement)
-
-    camera_controls.dollyDragInverted = true
-    camera_controls.dollyToCursor = true
-    camera_controls.maxDistance = CAMERA_MAX_DISTANCE
-    camera_controls.minDistance = CAMERA_MIN_DISTANCE
-    camera_controls.smoothTime = 0.1
-    camera_controls.dollyTo(8)
-    camera_controls.rotate(0, 1)
+    const cameraControls = new CameraControls(camera, renderer.domElement)
+    cameraControls.addEventListener('control', ({ target }: any) => {
+        const camControls = target as CameraControls
+        if (App.instance.state.camTracking && camControls.currentAction === 2) {
+            console.log(`free cam mode`)
+            App.instance.state.camTracking = false
+            App.instance.gui.refresh()
+        }
+    })
+    cameraControls.dollyDragInverted = true
+    cameraControls.dollyToCursor = true
+    cameraControls.maxDistance = CAMERA_MAX_DISTANCE
+    cameraControls.minDistance = CAMERA_MIN_DISTANCE
+    cameraControls.smoothTime = 0.1
+    cameraControls.dollyTo(8)
+    cameraControls.rotate(0, 1)
 
     // let is_dragging = false
 
@@ -74,16 +82,15 @@ export const init_controls = (camera: PerspectiveCamera, renderer: WebGLRenderer
     //     camera_controls.mouseButtons.wheel = CameraControls.ACTION.NONE
     // }
 
-    const follow_player = (player_pos: Vector3, delta: number, player_height = 0) => {
+    const follow_player = (player_pos: Vector3, player_height = 0) => {
         const { x, y, z } = player_pos
 
         // Set the perspective camera position to follow the player
-        camera_controls.moveTo(x, y + player_height, z, true)
-        camera_controls.setTarget(x, y + player_height, z, true)
+        cameraControls.moveTo(x, y + player_height, z, true)
+        cameraControls.setTarget(x, y + player_height, z, true)
 
-        camera_controls.update(delta)
         // player.object3d.visible = camera_controls.distance > 0.75
     }
 
-    return follow_player
+    return { cameraControls, follow_player }
 }

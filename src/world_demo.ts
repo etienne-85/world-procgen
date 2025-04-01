@@ -1,5 +1,5 @@
 import './style.css'
-import './dev_tools'
+import './app'
 // import typescriptLogo from './typescript.svg'
 // import viteLogo from '/vite.svg'
 // import { setupCounter } from './counter.ts'
@@ -24,74 +24,35 @@ import './dev_tools'
 
 // setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
 
-import { init_world_dev_tools } from './dev_tools';
-import { Clock, Vector2 } from 'three';
+import { App } from './app';
+import { Clock } from 'three';
 import { demo_main_setup } from './demo_setup';
-import { init_board_chunks_provider, init_chunks_polling_service } from './modules/procedural';
+import { init_chunks_polling_service } from './modules/procedural';
 import { PhysicsEngine } from './modules/physics';
 import { VIEW_DIST } from './demo_settings';
 
 /**
- * Global setup
+ * Initial setup
  */
 
 const {
   world_demo_env,
   renderer, camera, scene, follow_player,
-  terrain_viewer, heightmap_atlas, voxelmap_viewer,
-  on_local_chunk_render, on_board_chunk_render, on_remote_chunk_render,
-  chunk_data_encoder
+  terrain_viewer, heightmap_atlas, voxelmap_viewer, clutter_viewer,
+  on_local_chunk_render, on_remote_chunk_render, cameraControls,
+  updateThreeStats, playerPosElement
 } = demo_main_setup()
+
+App.install(window)
+
 
 /**
  * Chunks polling
  */
 
 const { poll_chunks, get_visible_chunk_ids } = init_chunks_polling_service(world_demo_env, on_remote_chunk_render)
-const board_chunks_provider = init_board_chunks_provider(world_demo_env, chunk_data_encoder)
 
-/**
- * Physics
- */
-
-PhysicsEngine.instance(scene, camera)
-
-/**
- * Dev tools
- */
-
-const world_dev_tools = init_world_dev_tools(window);
-world_dev_tools.api.board_chunks_provider = board_chunks_provider
-world_dev_tools.api.board_chunks_render = board_chunks => {
-  for (const chunk of board_chunks) {
-    on_board_chunk_render(chunk)
-  }
-}
-
-const clock = new Clock()
-
-function main_loop() {
-  requestAnimationFrame(main_loop);
-  terrain_viewer.update(renderer)
-  heightmap_atlas.update(renderer)
-  PhysicsEngine.instance().update()
-  // cube.rotation.x += 0.01;
-  // cube.rotation.y += 0.01;
-  const delta = Math.min(clock.getDelta(), 0.5)
-  follow_player(PhysicsEngine.instance().player.container.position, delta)
-  renderer.render(scene, camera);
-}
-
-main_loop();
-
-
-// setInterval(() => {
-//   terrain_viewer.setLod(camera.position, 100, 3000);
-// }, 200);
-
-
-// set_water_level(50)
-setInterval(() => {
+const on_chunks_polling = () => {
   const current_pos = PhysicsEngine.instance().player.container.position
   const scheduled_tasks = poll_chunks(current_pos, VIEW_DIST)
   if (scheduled_tasks) {
@@ -107,5 +68,45 @@ setInterval(() => {
       }),
     )
   }
-}, 1000)
+}
+
+setInterval(on_chunks_polling, 1000)
+
+/**
+ * LOD live updating
+ */
+
+// setInterval(() => {
+//   terrain_viewer.setLod(camera.position, 100, 3000);
+// }, 200);
+
+/**
+ * Frame refresh loop
+ */
+const MAX_FRAME_COUNT = 10000
+const UI_REFRESH_RATE = 10
+const clock = new Clock()
+let frameCount = 0
+const on_frame_update_loop = () => {
+  frameCount = (frameCount + 1) % MAX_FRAME_COUNT
+  requestAnimationFrame(on_frame_update_loop);
+  const delta = Math.min(clock.getDelta(), 0.5)
+  const player_pos = App.instance.state.playerPos
+  terrain_viewer.update(renderer)
+  heightmap_atlas.update(renderer)
+  clutter_viewer.update(camera, player_pos);
+  PhysicsEngine.instance().update()
+  // cube.rotation.x += 0.01;
+  // cube.rotation.y += 0.01;
+  App.instance.state.camTracking && follow_player(player_pos);
+  updateThreeStats(frameCount);
+  (frameCount % UI_REFRESH_RATE === 0) && playerPosElement.refresh();
+  cameraControls.update(delta);
+  renderer.render(scene, camera);
+}
+
+on_frame_update_loop();
+
+
+// set_water_level(50)
 

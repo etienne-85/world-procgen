@@ -1,6 +1,15 @@
-import { asVect2, BlocksDataFormat, BlocksProcessing, BoardCacheProvider, BoardProvider, ChunksPolling, getPatchId, WorkerPool } from '@aresrpg/aresrpg-world';
-import { chunksWsClient } from '../../../aresrpg-world/test/remote-services/chunks_over_ws_client';
+import {
+    WorldLocals,
+    BlocksDataFormat,
+    BoardCacheProvider, BoardProvider,
+    ChunksPolling, WorkerPool,
+    asVect2, getPatchId,
+    BlocksTask
+} from '@aresrpg/aresrpg-world';
+import { chunksWsClient } from '../../../aresrpg-world/test/utils/chunks_over_ws_client';
 import { Vector2, Vector3 } from 'three';
+import workerUrl from '@aresrpg/aresrpg-world/worker?url'
+
 /**
 * Polling chunks either from remote or local source
 */
@@ -40,9 +49,14 @@ export class ProceduralEngine {
     }
 }
 
-export const init_chunks_polling_service = (world_env, on_remote_chunk) => {
+export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_chunk) => {
+    const patchViewRanges = {
+        near: 2,
+        far: 4
+    }
+    const chunksVerticalRange = world_env.rawSettings.chunks.verticalRange
     let is_remote_available = false
-    const chunks_polling = new ChunksPolling(world_env.rawSettings.patchViewRanges, world_env.rawSettings.chunks.verticalRange)
+    const chunks_polling = new ChunksPolling(patchViewRanges, chunksVerticalRange)
     // skip compression for local gen
     chunks_polling.skipBlobCompression = true
     // create workerpool to produce chunks locally
@@ -62,8 +76,9 @@ export const init_chunks_polling_service = (world_env, on_remote_chunk) => {
             console.warn(
                 `chunks stream client failed to start on ${WS_URL}, fallbacking to local gen `,
             )
+            const workerProvider = () => new Worker(workerUrl, { type: "module", name: 'externalWorker' })
             // init workerpool to produce chunks locally
-            chunks_workerpool.initPoolEnv(4, world_env).then(() => {
+            chunks_workerpool.initPoolEnv(4, world_env, workerProvider).then(() => {
                 console.log(`local chunks workerpool ready`)
             })
         })
@@ -90,43 +105,51 @@ export const init_chunks_polling_service = (world_env, on_remote_chunk) => {
     return { poll_chunks, get_visible_chunk_ids }
 }
 
-export const init_lod_blocks_provider = (world_demo_env) => {
+export const init_lod_blocks_provider = (world_demo_env: WorldLocals) => {
     const lod_dedicated_workerpool = new WorkerPool('lod_worker')
     lod_dedicated_workerpool.initPoolEnv(1, world_demo_env)
 
+    // console.log(`pending tasks: ${lod_dedicated_workerpool.processingQueue.length}`)
+
+    const cancelAllLodTasks = () => {
+        const { processingQueue } = lod_dedicated_workerpool
+        console.log(`cancelling ${processingQueue.length} tasks`)
+        processingQueue.forEach(task => task.cancel())
+    }
+
     const lod_blocks_provider = async (positions_batch: Float32Array) => {
-        const blocks_request = BlocksProcessing.getPeakPositions(positions_batch)
+        const blocks_request = new BlocksTask().peakPositions(positions_batch)
         blocks_request.processingParams.dataFormat = BlocksDataFormat.XZ_FloatArray
+        // console.log(`pending tasks: ${lod_dedicated_workerpool.processingQueue.length}`)
         const batch_result = await blocks_request.delegate(lod_dedicated_workerpool)
         return batch_result
     }
-    return lod_blocks_provider
+    return { lod_blocks_provider, cancelAllLodTasks }
 }
 
-export const init_board_chunks_provider = (world_env, chunks_data_encoder) => {
+export const get_board_provider = (worldEnv: WorldLocals, chunksDataEncoder: any, boardPos: Vector3) => {
     const board_dedicated_worker_pool = new WorkerPool()
-    board_dedicated_worker_pool.initPoolEnv(1, world_env)
+    board_dedicated_worker_pool.initPoolEnv(1, worldEnv)
 
-    const board_chunks_provider = async (board_pos) => {
-        const cache_prov = new BoardCacheProvider(board_dedicated_worker_pool, world_env)
+    const buildBoard = async () => {
+        const cache_prov = new BoardCacheProvider(board_dedicated_worker_pool, worldEnv)
         const board_processor = new BoardProvider(
-            board_pos,
+            boardPos,
             cache_prov,
-            chunks_data_encoder,
-            world_env
+            chunksDataEncoder,
+            worldEnv
         )
 
         const board = await board_processor.genBoardContent()
-        const board_chunks = board_processor.overrideOriginalChunksContent(
-            board.chunk,
-        )
-        const original_chunks = board_processor.restoreOriginalChunksContent()
-        const board_data = board.patch.toStub()
-        board_data.elevation = board_processor.boardElevation
 
-        return { board_chunks, original_chunks }
+        const boardChunks = board_processor.overrideOriginalChunksContent(board.chunk)
+        const originalChunks = board_processor.restoreOriginalChunksContent()
+        const boardData = board.patch.toStub()
+        boardData.elevation = board_processor.boardElevation
+
+        return { boardData, boardChunks, originalChunks }
     }
-    return board_chunks_provider
+    return buildBoard
 }
 
 
@@ -232,8 +255,8 @@ export const init_board_chunks_provider = (world_env, chunks_data_encoder) => {
 //     }
 // }
 
-const show_board = async () => {
-    const { board_chunks } = await window.world_dev_tools.api.create_board(window.world_dev_tools.state.pos);
-    window.world_dev_tools.api.render_board_chunks(board_chunks)
-    console.log(board_chunks)
-}
+// const show_board = async () => {
+//     const { board_chunks } = await window.world_dev_tools.api.create_board(window.world_dev_tools.state.pos);
+//     window.world_dev_tools.api.render_board_chunks(board_chunks)
+//     console.log(board_chunks)
+// }

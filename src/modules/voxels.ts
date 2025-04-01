@@ -1,7 +1,9 @@
+import * as THREE from 'three'
+
 import {
     ClutterViewer,
     EComputationMethod,
-    HeightmapAtlas,
+    HeightmapAtlasAutonomous,
     HeightmapViewerGpu,
     MaterialsStore,
     Minimap,
@@ -22,7 +24,16 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
         altitude: WORLD_ALTITUDE_RANGE,
         voxelTypesDefininitions: {
             solidMaterials: voxel_materials_list,
-            clutterVoxels: [],
+            clutterVoxels: [{
+                type: 'grass-2d' as 'grass-2d',
+                texture: new THREE.TextureLoader().load('grass-2d.png', texture => {
+                    texture.magFilter = THREE.NearestFilter;
+                    texture.minFilter = THREE.NearestFilter;
+                    texture.colorSpace = THREE.LinearSRGBColorSpace;
+                }),
+                width: 4 / 4,
+                height: 3 / 4,
+            }],
         },
         waterLevel: 0,
         getWaterColorForPatch(
@@ -36,8 +47,8 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
             const batch_result = await blocksProvider(coords)
 
             const result = {
-                altitudes: batch_result.elevation,
-                materialIds: batch_result.type,
+                altitudes: batch_result?.elevation || [],
+                materialIds: batch_result?.type || [],
             }
 
             return result
@@ -77,8 +88,13 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
         },
     })
 
-    const heightmap_atlas = new HeightmapAtlas({
+    const heightmap_atlas = new HeightmapAtlasAutonomous({
         heightmap: map,
+        heightmapQueries: {
+            interval: 200,
+            batchSize: 2,
+            maxParallelQueries: 20,
+          },
         materialsStore: voxels_materials_store,
         texelSizeInWorld: 2,
         leafTileSizeInWorld: voxelmap_viewer.chunkSize.xz,
@@ -90,7 +106,7 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
     })
 
     const terrain_viewer = new TerrainViewer(heightmap_viewer, voxelmap_viewer)
-    terrain_viewer.parameters.lod.enabled = true
+    // terrain_viewer.parameters.lod.enabled = true
 
     const water_view_distance = 3000
     const patch_size = CHUNK_SIZE.xz
