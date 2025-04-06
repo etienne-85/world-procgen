@@ -4,11 +4,16 @@ import {
     BoardCacheProvider, BoardProvider,
     ChunksPolling, WorkerPool,
     asVect2, getPatchId,
-    BlocksTask
+    BlocksTask,
+    createWorldModules,
+    ItemsTask,
+    WorldModules,
+    MapPickedElements
 } from '@aresrpg/aresrpg-world';
 import { chunksWsClient } from '../../../aresrpg-world/test/utils/chunks_over_ws_client';
-import { Vector2, Vector3 } from 'three';
+import { Box2, Vector2, Vector3 } from 'three';
 import workerUrl from '@aresrpg/aresrpg-world/worker?url'
+import { App } from '../app';
 
 /**
 * Polling chunks either from remote or local source
@@ -105,6 +110,16 @@ export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_ch
     return { poll_chunks, get_visible_chunk_ids }
 }
 
+export const initGlobalPurposeWorkerpool = (worldEnv: WorldLocals) => {
+    const globalPurposeWorkerpool = new WorkerPool('global-purpose')
+    globalPurposeWorkerpool.initPoolEnv(1, worldEnv)
+}
+
+export const initWorldMainProvider = (worldEnv: WorldLocals) => {
+    const worldProvider = createWorldModules(worldEnv.toStub())
+    return worldProvider
+}
+
 export const init_lod_blocks_provider = (world_demo_env: WorldLocals) => {
     const lod_dedicated_workerpool = new WorkerPool('lod_worker')
     lod_dedicated_workerpool.initPoolEnv(1, world_demo_env)
@@ -118,8 +133,11 @@ export const init_lod_blocks_provider = (world_demo_env: WorldLocals) => {
     }
 
     const lod_blocks_provider = async (positions_batch: Float32Array) => {
-        const blocks_request = new BlocksTask().peakPositions(positions_batch)
-        blocks_request.processingParams.dataFormat = BlocksDataFormat.XZ_FloatArray
+        const sampledPos = new Vector2(positions_batch[0], positions_batch[1])
+        const { playerPos } = App.instance.state
+        const dist = sampledPos.distanceTo(asVect2(playerPos))
+        const blocks_request = dist < 5000 ? new BlocksTask().peakPositions(positions_batch) : new BlocksTask().groundPositions(positions_batch)
+        blocks_request.processingParams.dataFormat = BlocksDataFormat.FloatArrayXZ
         // console.log(`pending tasks: ${lod_dedicated_workerpool.processingQueue.length}`)
         const batch_result = await blocks_request.delegate(lod_dedicated_workerpool)
         return batch_result
@@ -150,6 +168,18 @@ export const get_board_provider = (worldEnv: WorldLocals, chunksDataEncoder: any
         return { boardData, boardChunks, originalChunks }
     }
     return buildBoard
+}
+
+export type MapDataProvider = (input: Box2) => Promise<MapPickedElements>
+
+export const getMapDataProvider = (worldProvider: WorldModules) => {
+    const itemsTaskHandler = worldProvider.taskHandlers[ItemsTask.handlerId]
+    const itemsProvider = async (input: Box2) => {
+        const itemsTask = new ItemsTask().spawnedElements(input)
+        const spawnedElements = await itemsTask.process(itemsTaskHandler) as MapPickedElements
+        return spawnedElements
+    }
+    return itemsProvider as MapDataProvider
 }
 
 

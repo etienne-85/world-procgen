@@ -1,4 +1,4 @@
-import { BlockMode, BlocksProcessing, BlockType, createWorldModules, parseChunkKey, parseThreeStub } from '@aresrpg/aresrpg-world';
+import { BlockMode, BlockType, getChunkId, parseChunkKey, parseThreeStub } from '@aresrpg/aresrpg-world';
 import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../aresrpg-world/test/configs/blocks_mappings';
 import { getWorldDemoEnv } from '../../aresrpg-world/test/configs/world_demo_setup';
 import { SCHEMATICS_FILES_INDEX } from './assets/schematics_index';
@@ -6,11 +6,20 @@ import { init_voxel_engine } from './modules/voxels';
 import { init_graphics } from './modules/graphics';
 import { Vector3 } from 'three';
 import { voxelEncoder } from '@aresrpg/aresrpg-engine';
-import { get_board_provider, init_lod_blocks_provider } from './modules/procedural';
+import { get_board_provider, getMapDataProvider, init_lod_blocks_provider, initWorldMainProvider } from './modules/procedural';
 import { PhysicsEngine } from './modules/physics';
 import { init_controls } from './modules/controls';
 import { App, initThreeStats } from './app';
-import { BlocksTask } from '../../aresrpg-world/dist/processing/BlocksProcessing';
+import { Minimap } from './modules/minimap';
+
+const getPointsPresets = () => {
+    const hole1 = () => App.instance.state.playerPos.set(451, 130, -584)
+    const hole2 = () => App.instance.state.playerPos.set(730, 150, -1330)
+    const peak = () => App.instance.state.playerPos.set(-190, 380, -254)
+    const forest = () => App.instance.state.playerPos.set(270, 120, -391)
+    const pyramids = () => App.instance.state.playerPos.set(800, 120, 1000)
+    return { hole1, hole2, peak, forest, pyramids }
+}
 
 /**
  * World settings customization
@@ -22,7 +31,7 @@ const setupProceduralEnv = () => {
     worldEnv.rawSettings.items.schematics.filesIndex = SCHEMATICS_FILES_INDEX
     // world_demo_env.rawSettings.biomes.repartition.centralHalfSegment = 0.07
     worldEnv.debugEnv.patch.borderHighlightColor = ExtBlock.DBG_LIGHT
-    // worldEnv.rawSettings.distributionMapPatchRange = 1
+    // worldEnv.rawSettings.distribution.mapPatchRange = 1
     // worldEnv.rawSettings.distributionMapPeriod = 1
     return worldEnv
 }
@@ -38,7 +47,7 @@ const get_voxel_utils = () => {
                 )
         return voxelEncoder.encodeEmpty()
     }
-    console.log(blocks_color_mapping)
+    // console.log(blocks_color_mapping)
     return { blocks_color_mapping, chunk_data_encoder }
 }
 
@@ -54,13 +63,14 @@ const setup_chunks_rendering = (voxelmap_viewer: any, chunk_data_encoder: any) =
         const bounds = parseThreeStub(metadata.bounds)
         const extended_bounds = bounds.clone().expandByScalar(metadata.margin)
         const size = extended_bounds.getSize(new Vector3())
-        const data = metadata.isEmpty ? [] :
-            skip_encoding ? rawdata : rawdata.map(chunk_data_encoder)
+        const data = rawdata ? skip_encoding ? rawdata : rawdata.map(chunk_data_encoder) :
+            []
+
         const voxels_chunk_data = {
             data,
             size,
             dataOrdering: 'zxy',
-            isEmpty: metadata.isEmpty,
+            isEmpty: !rawdata,
         }
         const engine_chunk = {
             id,
@@ -108,14 +118,29 @@ const setup_chunks_rendering = (voxelmap_viewer: any, chunk_data_encoder: any) =
     return world_chunk_renderer
 }
 
-const initAppState = () => {
-    const camTracking = true
-    App.state.add({ camTracking })
-    const resetCamBtn = App.gui.addButton({ title: `reattach cam` });
+const initUIPanel = () => {
+    const playerPosElement = App.gui.addBinding(App.instance.state, 'playerPos', {
+        label: "block",
+        x: { readonly: false, format: (value) => Math.round(value) },
+        y: { readonly: false, format: (value) => Math.round(value) },
+        z: { readonly: false, format: (value) => Math.round(value) },
+    });
+
+    const patchCoordsElement = App.gui.addBinding(App.instance.state, 'patchCoords', {
+        label: "patch",
+        x: { readonly: false, format: (value) => Math.round(value) },
+        y: { readonly: false, format: (value) => Math.round(value) },
+        z: { readonly: false, format: (value) => Math.round(value) },
+    });
+
+
+    const resetCamBtn = App.gui.addButton({ title: `reset cam` });
     resetCamBtn.on('click', () => App.instance.state.camTracking = true)
     // App.gui.addBinding(App.instance.state, 'camTracking', {
     //     label: 'track',
     // })
+
+    return { playerPosElement, patchCoordsElement }
 }
 
 
@@ -148,16 +173,27 @@ export const demo_main_setup = () => {
     const on_local_chunk_render = local_chunk => world_chunk_renderer(local_chunk, { skip_formatting: false, skip_encoding: false })
     const on_remote_chunk_render = remote_chunk => world_chunk_renderer(remote_chunk, { skip_formatting: false })
     const on_board_chunk_render = board_chunk => world_chunk_renderer(board_chunk, { skip_formatting: false, skip_encoding: true })
-    // UI
+    // State
     const playerPos = PhysicsEngine.instance().player.container.position
-    App.state.add({ playerPos })
-    const playerPosElement = App.gui.addBinding(App.instance.state, 'playerPos', {
-        label: "player pos",
-        x: { readonly: false, format: (value) => Math.round(value) },
-        y: { readonly: false, format: (value) => Math.round(value) },
-        z: { readonly: false, format: (value) => Math.round(value) },
-    });
-    initAppState()
+    const patchCoords = playerPos.clone()
+    App.state.add({ playerPos, patchCoords })
+    const camTracking = true
+    App.state.add({ camTracking })
+    const updatePatchCoords = () => {
+        const { playerPos, patchCoords } = App.instance.state
+        const chunkId = getChunkId(playerPos, world_demo_env.getChunkDimensions())
+        patchCoords.set(chunkId.x, chunkId.y, chunkId.z)
+    }
+    updatePatchCoords()
+    const goto = getPointsPresets()
+    App.api.add({ goto })
+    // UI
+    const { playerPosElement, patchCoordsElement } = initUIPanel()
+    const refreshUIPanel = () => {
+        playerPosElement.refresh()
+        updatePatchCoords()
+        patchCoordsElement.refresh()
+    }
 
     // const refreshPlayerPosUI = playerPosElement.refresh
 
@@ -192,11 +228,14 @@ export const demo_main_setup = () => {
     boardBtn.on('click', () => App.instance.api.toggleBoard())
 
     App.api.add({ resetLod, toggleBoard })
-    const world_modules = createWorldModules(world_demo_env.toStub())
-    const blocks_handler = world_modules.taskHandlers[BlocksTask.handlerId]
-    const sampled_pos = new Vector3(0, 160, 0)
-    const debug_request = BlocksProcessing.floorPositions([sampled_pos])
-    debug_request.asyncProcess(blocks_handler).then(res => console.log(res))
+
+    // Main world provider
+    const worldMainProvider = initWorldMainProvider(world_demo_env)
+
+    // Minimap
+    const minimapContainer = document.querySelector<HTMLCanvasElement>('#minimap') as HTMLCanvasElement
+    const mapDataProvider = getMapDataProvider(worldMainProvider)
+    const minimap = new Minimap(minimapContainer, mapDataProvider, worldMainProvider)
 
     // Three stats
     const { updateThreeStats } = initThreeStats(renderer)
@@ -217,7 +256,9 @@ export const demo_main_setup = () => {
         cameraControls,
         follow_player,
         updateThreeStats,
-        playerPosElement
+        refreshUIPanel,
+        worldMainProvider,
+        minimap
     }
 }
 

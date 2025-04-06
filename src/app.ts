@@ -18,7 +18,7 @@ export const initThreeStats = (renderer: WebGLRenderer) => {
         const statsFps = new Stats();
         statsContainer.appendChild(statsFps.dom);
         statsFps.dom.style.cssText = 'position:relative; cursor:pointer;margin:2px';
-        
+
         // const statsDrawCalls = new Stats();
         // statsContainer.appendChild(statsDrawCalls.dom);
         // const statsDrawCallsPanel = new Stats.Panel('draw calls', '#ffffff', '#213547');
@@ -44,8 +44,8 @@ export const initThreeStats = (renderer: WebGLRenderer) => {
         }
         return { updateThreeStats }
     }
-
-    return () => null
+    const updateThreeStats = () => null
+    return { updateThreeStats }
 }
 
 
@@ -60,6 +60,7 @@ export class App {
     gui: Pane
     private _api = new Collection()
     private _state = new Collection()
+    presets = new Collection()
 
     constructor() {
         const pane = new Pane()
@@ -91,7 +92,7 @@ export class App {
     }
 
     static install(container: any) {
-        const { api, state, gui } = this.instance
-        container.appDevTools = { api, state, gui }
+        const { api, state, gui, presets } = this.instance
+        container.appDevTools = { api, state, gui, presets }
     }
 }

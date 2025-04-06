@@ -44,7 +44,12 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
             return color
         },
         async sampleHeightmap(/** @type Float32Array */ coords) {
-            const batch_result = await blocksProvider(coords)
+            const useFake = false
+            const fakeResult = {
+                elevation: [],
+                type: []
+            }
+            const batch_result = useFake ? fakeResult : await blocksProvider(coords)
 
             const result = {
                 altitudes: batch_result?.elevation || [],
@@ -94,7 +99,7 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
             interval: 200,
             batchSize: 2,
             maxParallelQueries: 20,
-          },
+        },
         materialsStore: voxels_materials_store,
         texelSizeInWorld: 2,
         leafTileSizeInWorld: voxelmap_viewer.chunkSize.xz,

@@ -40,7 +40,7 @@ const {
   renderer, camera, scene, follow_player,
   terrain_viewer, heightmap_atlas, voxelmap_viewer, clutter_viewer,
   on_local_chunk_render, on_remote_chunk_render, cameraControls,
-  updateThreeStats, playerPosElement
+  updateThreeStats, refreshUIPanel, minimap
 } = demo_main_setup()
 
 App.install(window)
@@ -72,6 +72,7 @@ const on_chunks_polling = () => {
 
 setInterval(on_chunks_polling, 1000)
 
+
 /**
  * LOD live updating
  */
@@ -81,10 +82,16 @@ setInterval(on_chunks_polling, 1000)
 // }, 200);
 
 /**
+ * Tests
+ */
+// initTests(worldMainProvider)
+
+/**
  * Frame refresh loop
  */
 const MAX_FRAME_COUNT = 10000
 const UI_REFRESH_RATE = 10
+const MINIMAP_REFRESH_RATE = 10
 const clock = new Clock()
 let frameCount = 0
 const on_frame_update_loop = () => {
@@ -100,7 +107,8 @@ const on_frame_update_loop = () => {
   // cube.rotation.y += 0.01;
   App.instance.state.camTracking && follow_player(player_pos);
   updateThreeStats(frameCount);
-  (frameCount % UI_REFRESH_RATE === 0) && playerPosElement.refresh();
+  (frameCount % UI_REFRESH_RATE === 0) && refreshUIPanel();
+  (frameCount % MINIMAP_REFRESH_RATE === 0) && minimap.refreshDisplay();
   cameraControls.update(delta);
   renderer.render(scene, camera);
 }

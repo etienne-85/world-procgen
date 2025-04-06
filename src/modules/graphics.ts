@@ -1,16 +1,22 @@
 import { DirectionalLight, AmbientLight, PCFSoftShadowMap, Color, Scene, PerspectiveCamera, WebGLRenderer } from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
+const DARK = 0x1c1c1c
+const WHITE = 0xffffff
+const DIR_LIGHT = WHITE  // 1c1c1c
+const AMB_LIGHT = WHITE
+const CLEAR_COLOR = WHITE
 
 const setup_lights = (renderer, scene: Scene) => {
     const enableShadows = true
-    const dirLight = new DirectionalLight(0xffffff, 1);
+    const dirLight = new DirectionalLight(DIR_LIGHT, 1);
     dirLight.name = 'dirlight';
     dirLight.target.position.set(0, 0, 0);
     dirLight.position.set(100, 50, 100);
+    dirLight.intensity = 1
     scene.add(dirLight);
     // this.gui.add(dirLight, 'intensity', 0, 3).name('Directional light');
 
-    const ambientLight = new AmbientLight(0xffffff);
+    const ambientLight = new AmbientLight(AMB_LIGHT);
     ambientLight.name = 'ambient-light';
     scene.add(ambientLight);
     // this.gui.add(ambientLight, 'intensity', 0, 3).name('Ambient light');
@@ -41,20 +47,13 @@ const setup_lights = (renderer, scene: Scene) => {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = PCFSoftShadowMap;
     }
-
-    const lightColor = new Color(0xffffff);
-    ambientLight.color = lightColor;
-    ambientLight.intensity = 1;
-
-    dirLight.color = lightColor;
-    dirLight.intensity = 3;
 }
 
 export const init_graphics = () => {
     const container = document.querySelector<HTMLDivElement>('#app')
     const renderer = new WebGLRenderer();
     container!.appendChild(renderer.domElement);
-    renderer.setClearColor(0xffffff);
+    renderer.setClearColor(CLEAR_COLOR);
   
     const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
     const udpateRendererSize = () => {
