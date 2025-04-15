@@ -1,5 +1,5 @@
 import './style.css'
-import './app'
+import './app-context'
 // import typescriptLogo from './typescript.svg'
 // import viteLogo from '/vite.svg'
 // import { setupCounter } from './counter.ts'
@@ -24,12 +24,12 @@ import './app'
 
 // setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
 
-import { App } from './app';
 import { Clock } from 'three';
-import { demo_main_setup } from './demo_setup';
 import { init_chunks_polling_service } from './modules/procedural';
 import { PhysicsEngine } from './modules/physics';
-import { VIEW_DIST } from './demo_settings';
+import { AppContext, AppState } from './app-context';
+import { VIEW_DIST } from './app-settings';
+import {demo_main_setup} from './app-setup'
 
 /**
  * Initial setup
@@ -41,9 +41,9 @@ const {
   terrain_viewer, heightmap_atlas, voxelmap_viewer, clutter_viewer,
   on_local_chunk_render, on_remote_chunk_render, cameraControls,
   updateThreeStats, refreshUIPanel, minimap
-} = demo_main_setup()
+} = await demo_main_setup()
 
-App.install(window)
+AppContext.install(window)
 
 
 /**
@@ -98,14 +98,14 @@ const on_frame_update_loop = () => {
   frameCount = (frameCount + 1) % MAX_FRAME_COUNT
   requestAnimationFrame(on_frame_update_loop);
   const delta = Math.min(clock.getDelta(), 0.5)
-  const player_pos = App.instance.state.playerPos
+  const player_pos = AppState.playerPos
   terrain_viewer.update(renderer)
   heightmap_atlas.update(renderer)
   clutter_viewer.update(camera, player_pos);
   PhysicsEngine.instance().update()
   // cube.rotation.x += 0.01;
   // cube.rotation.y += 0.01;
-  App.instance.state.camTracking && follow_player(player_pos);
+  AppState.camTracking && follow_player(player_pos);
   updateThreeStats(frameCount);
   (frameCount % UI_REFRESH_RATE === 0) && refreshUIPanel();
   (frameCount % MINIMAP_REFRESH_RATE === 0) && minimap.refreshDisplay();
