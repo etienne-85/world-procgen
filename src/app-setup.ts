@@ -1,4 +1,4 @@
-import { BlockMode, BlockType, getChunkId, parseChunkKey, parseThreeStub } from '@aresrpg/aresrpg-world';
+import { BlockMode, BlockType, getChunkId, parseChunkKey, parseThreeStub, WorldGlobals } from '@aresrpg/aresrpg-world';
 import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../aresrpg-world/test/configs/blocks_mappings';
 import { getWorldDemoEnv } from '../../aresrpg-world/test/configs/world_demo_setup';
 import { SCHEMATICS_FILES_INDEX } from './assets/schematics_index';
@@ -6,19 +6,20 @@ import { init_voxel_engine } from './modules/voxels';
 import { init_graphics } from './modules/graphics';
 import { Vector3 } from 'three';
 import { voxelEncoder } from '@aresrpg/aresrpg-engine';
-import { get_board_provider, getMapDataProvider, init_lod_blocks_provider, initWorldMainProvider } from './modules/procedural';
+import { get_board_provider, getAsyncMapDataProvider, getMapDataProvider, init_lod_blocks_provider, initGlobalPurposeWorkerpool, initWorldMainProvider } from './modules/procedural';
 import { PhysicsEngine } from './modules/physics';
 import { init_controls } from './modules/controls';
-import { App, initThreeStats } from './app';
+import { AppApi, AppContext, AppState, initThreeStats } from './app-context';
 import { Minimap } from './modules/minimap';
+import { MAP_POI } from './app-user-settings';
 
-const getPointsPresets = () => {
-    const hole1 = () => App.instance.state.playerPos.set(451, 130, -584)
-    const hole2 = () => App.instance.state.playerPos.set(730, 150, -1330)
-    const peak = () => App.instance.state.playerPos.set(-190, 380, -254)
-    const forest = () => App.instance.state.playerPos.set(270, 120, -391)
-    const pyramids = () => App.instance.state.playerPos.set(800, 120, 1000)
-    return { hole1, hole2, peak, forest, pyramids }
+const setupPOI = () => {
+    const gotoPOI: Record<string, any> = {}
+
+    for (const [label, coords] of Object.entries(MAP_POI)) {
+        gotoPOI[label] = () => AppState.playerPos.set(coords.x, coords.y, coords.z)
+    }
+    return gotoPOI
 }
 
 /**
@@ -30,7 +31,11 @@ const setupProceduralEnv = () => {
     // worldEnv.itemsEnv.schematics.filesIndex = SCHEMATICS_FILES_INDEX
     worldEnv.rawSettings.items.schematics.filesIndex = SCHEMATICS_FILES_INDEX
     // world_demo_env.rawSettings.biomes.repartition.centralHalfSegment = 0.07
-    worldEnv.debugEnv.patch.borderHighlightColor = ExtBlock.DBG_LIGHT
+    const worldGlobals = new WorldGlobals()
+    worldGlobals.debug.logs = false
+    // worldGlobals.debug.patch.borderHighlightColor = ExtBlock.DBG_LIGHT
+    worldGlobals.debug.schematics.missingBlockType = BlockType.HOLE
+    worldEnv.rawSettings.globals = worldGlobals.export()
     // worldEnv.rawSettings.distribution.mapPatchRange = 1
     // worldEnv.rawSettings.distributionMapPeriod = 1
     return worldEnv
@@ -56,7 +61,7 @@ const get_voxel_utils = () => {
  */
 const setup_chunks_rendering = (voxelmap_viewer: any, chunk_data_encoder: any) => {
 
-    const chunk_data_formatter = (chunk_data, skip_encoding = false) => {
+    const chunk_data_formatter = (chunk_data, skip_encoding = true) => {
         const { metadata, rawdata } = chunk_data
 
         const id = parseChunkKey(metadata.chunkKey)
@@ -98,7 +103,7 @@ const setup_chunks_rendering = (voxelmap_viewer: any, chunk_data_encoder: any) =
         {
             ignore_collision = true,
             skip_formatting = false,
-            skip_encoding = false,
+            skip_encoding = true,
         } = {},
     ) => {
         const engine_chunk = skip_formatting
@@ -119,14 +124,14 @@ const setup_chunks_rendering = (voxelmap_viewer: any, chunk_data_encoder: any) =
 }
 
 const initUIPanel = () => {
-    const playerPosElement = App.gui.addBinding(App.instance.state, 'playerPos', {
+    const playerPosElement = AppContext.gui.addBinding(AppState, 'playerPos', {
         label: "block",
         x: { readonly: false, format: (value) => Math.round(value) },
         y: { readonly: false, format: (value) => Math.round(value) },
         z: { readonly: false, format: (value) => Math.round(value) },
     });
 
-    const patchCoordsElement = App.gui.addBinding(App.instance.state, 'patchCoords', {
+    const patchCoordsElement = AppContext.gui.addBinding(AppState, 'patchCoords', {
         label: "patch",
         x: { readonly: false, format: (value) => Math.round(value) },
         y: { readonly: false, format: (value) => Math.round(value) },
@@ -134,9 +139,9 @@ const initUIPanel = () => {
     });
 
 
-    const resetCamBtn = App.gui.addButton({ title: `reset cam` });
-    resetCamBtn.on('click', () => App.instance.state.camTracking = true)
-    // App.gui.addBinding(App.instance.state, 'camTracking', {
+    const resetCamBtn = AppContext.gui.addButton({ title: `reset cam` });
+    resetCamBtn.on('click', () => AppState.camTracking = true)
+    // App.gui.addBinding(AppState, 'camTracking', {
     //     label: 'track',
     // })
 
@@ -145,7 +150,7 @@ const initUIPanel = () => {
 
 
 
-export const demo_main_setup = () => {
+export const demo_main_setup = async () => {
     // Procedural settings
     const world_demo_env = setupProceduralEnv()
     // Graphics
@@ -170,23 +175,23 @@ export const demo_main_setup = () => {
     scene.add(terrain_viewer.container)
     // Chunks rendering
     const world_chunk_renderer = setup_chunks_rendering(voxelmap_viewer, chunk_data_encoder)
-    const on_local_chunk_render = local_chunk => world_chunk_renderer(local_chunk, { skip_formatting: false, skip_encoding: false })
+    const on_local_chunk_render = local_chunk => world_chunk_renderer(local_chunk, { skip_formatting: false, skip_encoding: true })
     const on_remote_chunk_render = remote_chunk => world_chunk_renderer(remote_chunk, { skip_formatting: false })
     const on_board_chunk_render = board_chunk => world_chunk_renderer(board_chunk, { skip_formatting: false, skip_encoding: true })
     // State
     const playerPos = PhysicsEngine.instance().player.container.position
     const patchCoords = playerPos.clone()
-    App.state.add({ playerPos, patchCoords })
+    AppContext.state.add({ playerPos, patchCoords })
     const camTracking = true
-    App.state.add({ camTracking })
+    AppContext.state.add({ camTracking })
     const updatePatchCoords = () => {
-        const { playerPos, patchCoords } = App.instance.state
+        const { playerPos, patchCoords } = AppState
         const chunkId = getChunkId(playerPos, world_demo_env.getChunkDimensions())
         patchCoords.set(chunkId.x, chunkId.y, chunkId.z)
     }
     updatePatchCoords()
-    const goto = getPointsPresets()
-    App.api.add({ goto })
+    const gotoPOI = setupPOI()
+    AppContext.api.add({ gotoPOI })
     // UI
     const { playerPosElement, patchCoordsElement } = initUIPanel()
     const refreshUIPanel = () => {
@@ -204,7 +209,7 @@ export const demo_main_setup = () => {
         cancelAllLodTasks()
         terrain_viewer.setLod(camera.position, 50, camera.far)
     }
-    App.api.add({ resetLod })
+    AppContext.api.add({ resetLod })
     // Board
     const boardBrovider = get_board_provider(world_demo_env, chunk_data_encoder, playerPos)
     const toggleBoard = () => boardBrovider().then(board => {
@@ -221,20 +226,21 @@ export const demo_main_setup = () => {
             // App.instance.api.toggleBoard = toggleBoard
             return true
         }
-        App.instance.api.toggleBoard = () => removeLast() && toggleBoard()
+        AppApi.toggleBoard = () => removeLast() && toggleBoard()
     })
 
-    const boardBtn = App.gui.addButton({ title: `show board` });
-    boardBtn.on('click', () => App.instance.api.toggleBoard())
+    const boardBtn = AppContext.gui.addButton({ title: `show board` });
+    boardBtn.on('click', () => AppApi.toggleBoard())
 
-    App.api.add({ resetLod, toggleBoard })
+    AppContext.api.add({ resetLod, toggleBoard })
 
-    // Main world provider
-    const worldMainProvider = initWorldMainProvider(world_demo_env)
+    // World providers
+    const worldMainProvider = await initWorldMainProvider(world_demo_env)
+    const globalPurposeWorkerpool = await initGlobalPurposeWorkerpool(world_demo_env)
 
     // Minimap
     const minimapContainer = document.querySelector<HTMLCanvasElement>('#minimap') as HTMLCanvasElement
-    const mapDataProvider = getMapDataProvider(worldMainProvider)
+    const mapDataProvider = getAsyncMapDataProvider(globalPurposeWorkerpool) //getMapDataProvider(worldMainProvider.taskHandlers)
     const minimap = new Minimap(minimapContainer, mapDataProvider, worldMainProvider)
 
     // Three stats

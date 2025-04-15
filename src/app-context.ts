@@ -2,8 +2,6 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { Pane } from 'tweakpane';
 import { WebGLRenderer } from 'three';
 
-const STATS_REFRESH_RATE = 60
-
 export class Collection {
     fields = {} as any
     add(fields: Object) {
@@ -55,8 +53,8 @@ export const initGui = () => {
     return pane
 }
 
-export class App {
-    private static singleton: App
+export class AppContext {
+    private static singleton: AppContext
     gui: Pane
     private _api = new Collection()
     private _state = new Collection()
@@ -79,7 +77,7 @@ export class App {
     }
 
     static get instance() {
-        this.singleton = this.singleton || new App()
+        this.singleton = this.singleton || new AppContext()
         return this.singleton
     }
 
@@ -96,3 +94,7 @@ export class App {
         container.appDevTools = { api, state, gui, presets }
     }
 }
+
+export const AppState = AppContext.instance.state
+export const AppGui = AppContext.instance.gui
+export const AppApi = AppContext.instance.api
