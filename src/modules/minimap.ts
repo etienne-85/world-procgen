@@ -1,26 +1,20 @@
 import { asVect2, WorldModules } from "@aresrpg/aresrpg-world";
 import { Box2, Vector2 } from "three";
-import { App } from "../app";
-import { MapDataProvider } from "./procedural";
+import { AppState } from "../app-context";
+import { AsyncMapDataProvider, MapDataProvider } from "../setup/world-setup";
 
 const MAP_RADIUS = 256
-const sizeColorMappings = {
-    64: 'red',
-    48: 'blue',
-    32: 'green'
-}
-
 const MAP_MODES_COUNT = 8
 
 enum MapMode {
     Spawned,
-    AllPoints,
     Points64,
     Points48,
     Points32,
     Points24,
     Points16,
     Points8,
+    Points4,
 }
 
 const filterSizeMappings: Partial<Record<MapMode, number>> = {
@@ -30,6 +24,7 @@ const filterSizeMappings: Partial<Record<MapMode, number>> = {
     [MapMode.Points24]: 24,
     [MapMode.Points16]: 16,
     [MapMode.Points8]: 8,
+    [MapMode.Points4]: 4,
 }
 
 export class Minimap {
@@ -42,7 +37,7 @@ export class Minimap {
     lastMapOrigin?: Vector2
     mapMode = 0
 
-    constructor(canvasContainer: HTMLCanvasElement, mapDataProvider: MapDataProvider, worldProvider: WorldModules) {
+    constructor(canvasContainer: HTMLCanvasElement, mapDataProvider: MapDataProvider | AsyncMapDataProvider, worldProvider: WorldModules) {
         this.canvasContainer = canvasContainer
         this.canvasContainer.addEventListener('click', (event) => {
             this.mapMode = (this.mapMode + 1) % MAP_MODES_COUNT
@@ -57,7 +52,7 @@ export class Minimap {
     }
 
     get mapOrigin() {
-        const { playerPos } = App.instance.state
+        const { playerPos } = AppState
         const mapOrigin = asVect2(playerPos)
         return mapOrigin
     }
@@ -123,28 +118,35 @@ export class Minimap {
         canvasContext.fillText(num + '', point.x - 1.6 * offset, point.y + offset);
     }
 
+    drawCircle(center: Vector2, radius: number) {
+        const { canvasContext } = this
+        canvasContext.strokeStyle = 'red';
+        canvasContext.lineWidth = 2
+        canvasContext.beginPath();
+        canvasContext.arc(center.x, center.y, radius, 0, 2 * Math.PI);
+        canvasContext.stroke();
+    }
+
     async refreshData(forceRefresh = false) {
         const { mapOrigin, lastMapOrigin, mapDataProvider, mapExtendedArea, mapMode } = this
         if (forceRefresh || !lastMapOrigin || mapOrigin.distanceTo(lastMapOrigin) > 256) {
             // this.itemsDistribution.queryMapArea(mapArea)
             this.lastMapOrigin = this.mapOrigin
+            const { discreteDistributionMap } = this.worldProvider.spawnDistributionMap
+            const distributionData = discreteDistributionMap.querySpawnSlots(mapExtendedArea)
 
+            const spawnedItems = []
             if (mapMode === MapMode.Spawned) {
-                const mapData = await mapDataProvider(mapExtendedArea)
-                const spawnedItems = []
-                Object.entries(mapData).map(([type, spawned]) => {
-                    spawned
-                        .map(pos => asVect2(pos))
-                        .forEach(pos => spawnedItems.push({ type, pos }))
-                })
-                this.mapData = spawnedItems
+                const spawnData = await mapDataProvider(mapExtendedArea)
+                spawnData.forEach(({ spawnType, spawnOrigin, spawnPass, spawnStage  }) => spawnedItems.push({ type: spawnType, pos: asVect2(spawnOrigin), isDiscarded: !!spawnPass }))
             } else {
-                const filterSize = filterSizeMappings[mapMode]
-                const { discreteDistributionMap } = this.worldProvider.itemsMapDistribution
-                const distributionData = discreteDistributionMap.queryMapElements(mapExtendedArea)
-                const elements = distributionData.filter(element => filterSize ? element.maxSpawnRadius === filterSize : true)
-                this.mapData = elements //mapData
+                const mapData = discreteDistributionMap.querySpawnSlots(mapExtendedArea)
+                Object.entries(mapData).map(([type, spawned]) => {
+                    spawned.forEach(pos => spawnedItems.push({ type, pos }))
+                })
             }
+
+            this.mapData = spawnedItems
 
             // for (const [itemType, spawnList] of Object.entries(mapData)) {
             //     ItemsInventory.
@@ -153,40 +155,41 @@ export class Minimap {
         }
     }
 
-    handleMode(mapItem: any) {
+    displayMode(mapItem: any) {
         const { mapMode } = this
-        const { mapPos } = mapItem
+        const { mapPos, type, isDiscarded } = mapItem
         if (mapMode === MapMode.Spawned) {
-            const color = 'green'
-            const radius = 4 //maxSpawnRadius * sizeMultiplier
-            this.drawPoint(mapPos, { color, radius })
-        }
-        else if (mapMode === MapMode.AllPoints) {
-            const color = 'white'
-            const radius = 1
+            const color =  isDiscarded ? '#505050' : 'white'
+            const radius = 2 //maxSpawnRadius * sizeMultiplier
             this.drawPoint(mapPos, { color, radius })
         }
         else {
-            const { maxSpawnRadius } = mapItem
-            const sizeMultiplier = 0.4
-            const color = sizeColorMappings[maxSpawnRadius] || 'gray'
-            const radius = maxSpawnRadius * sizeMultiplier
+            const spawnSize = parseInt(type)
+            const selectedSize = filterSizeMappings[mapMode]
+            const color = spawnSize === selectedSize ? 'red' : 'white'
+            const radius = spawnSize === selectedSize ? selectedSize > 8 ? 4 : 2 : 1 //maxSpawnRadius * sizeMultiplier
             this.drawPoint(mapPos, { color, radius })
-            maxSpawnRadius >= 32 && this.drawText(mapPos, maxSpawnRadius)
+            spawnSize >= selectedSize && selectedSize > 8 && this.drawCircle(mapPos, selectedSize / 2)
+            // const { maxSpawnRadius } = mapItem
+            // const sizeMultiplier = 0.4
+            // const color = sizeColorMappings[maxSpawnRadius] || 'gray'
+            // const radius = maxSpawnRadius * sizeMultiplier
+            // this.drawPoint(mapPos, { color, radius })
+            // maxSpawnRadius >= 32 && this.drawText(mapPos, maxSpawnRadius)
         }
     }
 
     refreshDisplay() {
-        const { mapData, mapRadius, mapLocalCenter } = this
+        const { mapData, mapRadius, mapLocalCenter, mapOffset } = this
         this.clearCanvas()
         this.clearCanvasWithinRadius()
         mapData
             .map(element => {
-                const mapPos = element.pos.clone().add(this.mapOffset)
+                const mapPos = element.pos.clone().add(mapOffset)
                 return { ...element, mapPos }
             })
             .filter(mapItem => mapItem.mapPos.distanceTo(mapLocalCenter) <= mapRadius)
-            .forEach(mapItem => this.handleMode(mapItem))
+            .forEach(mapItem => this.displayMode(mapItem))
         this.drawPoint(mapLocalCenter, { color: 'white', radius: 5 })
         this.refreshData()
     }
