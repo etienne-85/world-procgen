@@ -1,17 +1,17 @@
 import { BlockMode, BlockType, getChunkId, parseChunkKey, parseThreeStub, WorldGlobals } from '@aresrpg/aresrpg-world';
-import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../aresrpg-world/test/configs/blocks_mappings';
-import { getWorldDemoEnv } from '../../aresrpg-world/test/configs/world_demo_setup';
-import { SCHEMATICS_FILES_INDEX } from './assets/schematics_index';
-import { init_voxel_engine } from './modules/voxels';
-import { init_graphics } from './modules/graphics';
+import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../../aresrpg-world/test/configs/blocks_mappings';
+import { getWorldDemoEnv } from '../../../aresrpg-world/test/configs/world_demo_setup';
+import { SCHEMATICS_FILES_INDEX } from '../assets/schematics_index';
+import { init_voxel_engine } from './engine-setup';
+import { init_graphics } from './graphics-setup';
 import { Vector3 } from 'three';
 import { voxelEncoder } from '@aresrpg/aresrpg-engine';
-import { get_board_provider, getAsyncMapDataProvider, getMapDataProvider, init_lod_blocks_provider, initGlobalPurposeWorkerpool, initWorldMainProvider } from './modules/procedural';
-import { PhysicsEngine } from './modules/physics';
-import { init_controls } from './modules/controls';
-import { AppApi, AppContext, AppState, initThreeStats } from './app-context';
-import { Minimap } from './modules/minimap';
-import { MAP_POI } from './app-user-settings';
+import { get_board_provider, getAsyncMapDataProvider, getMapDataProvider, init_lod_blocks_provider, initGlobalPurposeWorkerpool, initWorldMainProvider } from './world-setup';
+import { PhysicsEngine } from './physics-setup';
+import { init_controls } from '../modules/controls';
+import { AppApi, AppContext, AppState, initThreeStats } from '../app-context';
+import { Minimap } from '../modules/minimap';
+import { MAP_POI } from '../config/app-user-settings';
 
 const setupPOI = () => {
     const gotoPOI: Record<string, any> = {}

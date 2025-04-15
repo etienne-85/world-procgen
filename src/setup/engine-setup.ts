@@ -11,8 +11,11 @@ import {
     VoxelmapViewer,
     WaterData,
 } from '@aresrpg/aresrpg-engine'
-import { CHUNK_AXIS_ORDER, CHUNK_SIZE, CHUNKS_RANGE, WORLD_ALTITUDE_RANGE } from '../demo_settings'
+import { CHUNK_AXIS_ORDER, CHUNK_SIZE, CHUNKS_RANGE, WORLD_ALTITUDE_RANGE } from '../config/app-settings'
 import { Color } from 'three'
+import { fake_lod_data_provider } from './world-setup'
+
+const USE_FAKE_LOD_DATA = false
 
 export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any) {
     const voxel_materials_list = blocks_color_mapping.map(material =>
@@ -43,17 +46,12 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
             const /** @type [number, number, number] */ color = [41, 182, 246]
             return color
         },
-        async sampleHeightmap(/** @type Float32Array */ coords) {
-            const useFake = false
-            const fakeResult = {
-                elevation: [],
-                type: []
-            }
-            const batch_result = useFake ? fakeResult : await blocksProvider(coords)
+        async sampleHeightmap(samples: Float32Array) {
+            const lod_data = USE_FAKE_LOD_DATA ? fake_lod_data_provider(samples) : await blocksProvider(samples)
 
             const result = {
-                altitudes: batch_result?.elevation || [],
-                materialIds: batch_result?.type || [],
+                altitudes: lod_data?.elevation || [],
+                materialIds: lod_data?.type || [],
             }
 
             return result

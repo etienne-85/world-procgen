@@ -25,11 +25,11 @@ import './app-context'
 // setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
 
 import { Clock } from 'three';
-import { init_chunks_polling_service } from './modules/procedural';
-import { PhysicsEngine } from './modules/physics';
+import { init_chunks_polling_service } from './setup/world-setup';
+import { PhysicsEngine } from './setup/physics-setup';
 import { AppContext, AppState } from './app-context';
-import { VIEW_DIST } from './app-settings';
-import {demo_main_setup} from './app-setup'
+import { VIEW_DIST } from './config/app-settings';
+import {demo_main_setup} from './setup/app-setup'
 
 /**
  * Initial setup

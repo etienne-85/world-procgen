@@ -7,54 +7,25 @@ import {
     BlocksTask,
     createWorldModules,
     ItemsTask,
-    WorldModules,
-    MapPickedElements
+    SpawnChunk,
+    BlockType,
 } from '@aresrpg/aresrpg-world';
 import { chunksWsClient } from '../../../aresrpg-world/test/utils/chunks_over_ws_client';
 import { Box2, Vector2, Vector3 } from 'three';
 import workerUrl from '@aresrpg/aresrpg-world/worker?url'
-import { App } from '../app';
+import { AppState } from '../app-context';
+import { WorldTasksHandlers } from '../../../aresrpg-world/src';
+import { DiscardedSlot } from '../../../aresrpg-world/src/processing/ItemsProcessing';
+import { SpawnData } from '../../../aresrpg-world/src/factory/ChunksFactory';
+import { floatToVect2Array } from '../utils/utils';
 
 /**
 * Polling chunks either from remote or local source
 */
 
-export class ProceduralEngine {
-    private static singleton: ProceduralEngine
+const externalWorkerProvider = () => new Worker(workerUrl, { type: "module", name: 'external-worker' })
 
-    static instance() {
-        this.singleton = this.singleton || new ProceduralEngine()
-        // if (!this.singleton) {
-        //     if (scene && camera) {
-        //         this.singleton = new PhysicsDemo(scene, camera);
-        //     }
-        //     else {
-        //         console.warn('no instance exists. need to provide arguments to create one first.')
-        //     }
-        // } else if (scene && camera) {
-        //     console.warn('arguments detected, cannot create more than on instance.')
-        // }
-        return this.singleton; // Return the singleton instance
-    }
-
-    initLodWorkerPool() {
-
-    }
-
-    initChunksWorkerPool() {
-
-    }
-
-    requestLodData() {
-
-    }
-
-    pollChunks() {
-
-    }
-}
-
-export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_chunk) => {
+export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_chunk, useExternalWorker = false) => {
     const patchViewRanges = {
         near: 2,
         far: 4
@@ -65,7 +36,7 @@ export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_ch
     // skip compression for local gen
     chunks_polling.skipBlobCompression = true
     // create workerpool to produce chunks locally
-    const chunks_workerpool = new WorkerPool('chunks_worker')
+    const chunks_workerpool = new WorkerPool('chunks-processing')
     const get_visible_chunk_ids = chunks_polling.getVisibleChunkIds
     // try using remote source first
     const WS_URL = 'ws://localhost:3000'
@@ -81,9 +52,9 @@ export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_ch
             console.warn(
                 `chunks stream client failed to start on ${WS_URL}, fallbacking to local gen `,
             )
-            const workerProvider = () => new Worker(workerUrl, { type: "module", name: 'externalWorker' })
+
             // init workerpool to produce chunks locally
-            chunks_workerpool.initPoolEnv(4, world_env, workerProvider).then(() => {
+            chunks_workerpool.initPoolEnv(4, world_env, useExternalWorker ? externalWorkerProvider : undefined).then(() => {
                 console.log(`local chunks workerpool ready`)
             })
         })
@@ -110,18 +81,41 @@ export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_ch
     return { poll_chunks, get_visible_chunk_ids }
 }
 
-export const initGlobalPurposeWorkerpool = (worldEnv: WorldLocals) => {
+export const initGlobalPurposeWorkerpool = async (worldEnv: WorldLocals) => {
     const globalPurposeWorkerpool = new WorkerPool('global-purpose')
-    globalPurposeWorkerpool.initPoolEnv(1, worldEnv)
+    await globalPurposeWorkerpool.initPoolEnv(1, worldEnv)
+    return globalPurposeWorkerpool
 }
 
-export const initWorldMainProvider = (worldEnv: WorldLocals) => {
-    const worldProvider = createWorldModules(worldEnv.toStub())
+export const initWorldMainProvider = async (worldEnv: WorldLocals) => {
+    const worldProvider = await createWorldModules(worldEnv.toStub())
     return worldProvider
 }
 
+export const fake_lod_data_provider = (inputSamples: Float32Array) => {
+    const pos_batch = floatToVect2Array(inputSamples)
+
+    const map_pos_elevation = (pos: Vector2) => {
+        const dist = pos.length()
+        const elevation = 20 * (Math.sin(dist / 64) + 1)
+        return elevation
+    }
+    const map_pos_type = (pos: Vector2) => {
+        const { x, y } = pos.round()
+        const tolerance = 2 
+        const isGrid = Math.abs(x) % 128 <= tolerance || Math.abs(y) % 128 <= tolerance
+        return isGrid ? BlockType.SAND : BlockType.SNOW
+    }
+    const block_elevations = pos_batch.map(pos => map_pos_elevation(pos))
+    const elevation = new Float32Array(block_elevations)
+    const block_types = pos_batch.map(pos => map_pos_type(pos))
+    const type = new Int8Array(block_types)
+    const output_data = { elevation, type }
+    return output_data
+}
+
 export const init_lod_blocks_provider = (world_demo_env: WorldLocals) => {
-    const lod_dedicated_workerpool = new WorkerPool('lod_worker')
+    const lod_dedicated_workerpool = new WorkerPool('lod')
     lod_dedicated_workerpool.initPoolEnv(1, world_demo_env)
 
     // console.log(`pending tasks: ${lod_dedicated_workerpool.processingQueue.length}`)
@@ -134,7 +128,7 @@ export const init_lod_blocks_provider = (world_demo_env: WorldLocals) => {
 
     const lod_blocks_provider = async (positions_batch: Float32Array) => {
         const sampledPos = new Vector2(positions_batch[0], positions_batch[1])
-        const { playerPos } = App.instance.state
+        const { playerPos } = AppState
         const dist = sampledPos.distanceTo(asVect2(playerPos))
         const blocks_request = dist < 5000 ? new BlocksTask().peakPositions(positions_batch) : new BlocksTask().groundPositions(positions_batch)
         blocks_request.processingParams.dataFormat = BlocksDataFormat.FloatArrayXZ
@@ -170,16 +164,23 @@ export const get_board_provider = (worldEnv: WorldLocals, chunksDataEncoder: any
     return buildBoard
 }
 
-export type MapDataProvider = (input: Box2) => Promise<MapPickedElements>
+export type MapDataProvider = (input: Box2) => SpawnChunk[]
+export type AsyncMapDataProvider = (input: Box2) => Promise<(SpawnData | DiscardedSlot)[]>
 
-export const getMapDataProvider = (worldProvider: WorldModules) => {
-    const itemsTaskHandler = worldProvider.taskHandlers[ItemsTask.handlerId]
-    const itemsProvider = async (input: Box2) => {
-        const itemsTask = new ItemsTask().spawnedElements(input)
-        const spawnedElements = await itemsTask.process(itemsTaskHandler) as MapPickedElements
-        return spawnedElements
-    }
-    return itemsProvider as MapDataProvider
+export const getMapDataProvider = (taskHandlers: WorldTasksHandlers) => (input: Box2) => {
+    const itemsTask = new ItemsTask().spawnedElements(input)
+    itemsTask.processingParams.skipPostprocessing = true
+    itemsTask.processingParams.skipPruning = false
+    const spawnedElements = itemsTask.process(taskHandlers) as SpawnChunk[]
+    return spawnedElements
+}
+
+export const getAsyncMapDataProvider = (workerpool: WorkerPool) => async (input: Box2) => {
+    const itemsTask = new ItemsTask().spawnedElements(input)
+    itemsTask.processingParams.skipPostprocessing = true
+    itemsTask.processingParams.skipPruning = false
+    const spawnedElements = await itemsTask.delegate(workerpool) as (SpawnData | DiscardedSlot)[]
+    return spawnedElements
 }
 
 

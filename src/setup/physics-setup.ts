@@ -15,7 +15,7 @@ import {
 } from '@aresrpg/aresrpg-engine';
 import * as THREE from 'three';
 import { Mesh, Sphere, Vector3, Object3D, Scene, CylinderGeometry, Group, MeshBasicMaterial, SphereGeometry, PerspectiveCamera, MeshPhongMaterial, Vector3Like } from 'three';
-import { CHUNK_AXIS_ORDER, CHUNK_SIZE, PLAYER_SPEED } from '../demo_settings';
+import { CHUNK_AXIS_ORDER, CHUNK_SIZE, PLAYER_SPEED } from '../config/app-settings';
 
 type SolidSphere = {
     readonly mesh: Mesh;
@@ -227,6 +227,7 @@ export class PhysicsEngine { //extends TestBase {
             this.keysPressed.add(event.code);
         });
         window.addEventListener('keydown', event => {
+            // console.log(event.code)
             this.keyDown.set(event.code, true);
         });
 
@@ -279,7 +280,7 @@ export class PhysicsEngine { //extends TestBase {
     }
 
     private updateSpheres(deltaTime: number): void {
-        const gravity = 80;
+        const gravity = 10;
 
         for (const sphere of this.spheres) {
             sphere.collider.center.addScaledVector(sphere.velocity, deltaTime);
@@ -308,7 +309,7 @@ export class PhysicsEngine { //extends TestBase {
             },
             {
                 deltaTime,
-                gravity: 250,
+                gravity: 100,
                 ascendSpeed: 30,
                 missingVoxels: {
                     considerAsBlocking: true,
@@ -320,10 +321,13 @@ export class PhysicsEngine { //extends TestBase {
         this.player.container.position.copy(entityCollisionOutput.position);
         this.player.velocity.copy(entityCollisionOutput.velocity);
 
-        const movementSpeed = PLAYER_SPEED;
+        let movementSpeed = PLAYER_SPEED;
         if (entityCollisionOutput.isOnGround) {
             let isMoving = false;
             const directiond2d = new THREE.Vector2(0, 0);
+            if (this.keysPressed.has('ShiftLeft')) {
+                movementSpeed = PLAYER_SPEED*2
+            }
             if (this.keysPressed.has('KeyW')) {
                 isMoving = true;
                 directiond2d.y++;

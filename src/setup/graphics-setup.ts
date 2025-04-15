@@ -1,5 +1,5 @@
-import { DirectionalLight, AmbientLight, PCFSoftShadowMap, Color, Scene, PerspectiveCamera, WebGLRenderer } from "three";
-import { OrbitControls } from "three/examples/jsm/Addons.js";
+import { DirectionalLight, AmbientLight, PCFSoftShadowMap, Scene, PerspectiveCamera, WebGLRenderer } from "three";
+// import { OrbitControls } from "three/examples/jsm/Addons.js";
 const DARK = 0x1c1c1c
 const WHITE = 0xffffff
 const DIR_LIGHT = WHITE  // 1c1c1c
@@ -54,7 +54,7 @@ export const init_graphics = () => {
     const renderer = new WebGLRenderer();
     container!.appendChild(renderer.domElement);
     renderer.setClearColor(CLEAR_COLOR);
-  
+    // renderer.setPixelRatio(window.devicePixelRatio)
     const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
     const udpateRendererSize = () => {
       const width = window.innerWidth;
