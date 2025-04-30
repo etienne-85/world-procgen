@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { PerspectiveCamera, Vector3, WebGLRenderer } from 'three';
 import CameraControls from 'camera-controls';
-import { CAMERA_MAX_DISTANCE, CAMERA_MIN_DISTANCE } from '../demo_settings';
-import { App } from '../app';
+import { CAMERA_MAX_DISTANCE, CAMERA_MIN_DISTANCE } from '../config/app-settings';
+import { AppState, AppGui } from '../app-context';
 
 CameraControls.install({ THREE: THREE });
 
@@ -10,10 +10,10 @@ export const init_controls = (camera: PerspectiveCamera, renderer: WebGLRenderer
     const cameraControls = new CameraControls(camera, renderer.domElement)
     cameraControls.addEventListener('control', ({ target }: any) => {
         const camControls = target as CameraControls
-        if (App.instance.state.camTracking && camControls.currentAction === 2) {
+        if (AppState.camTracking && camControls.currentAction === 2) {
             console.log(`free cam mode`)
-            App.instance.state.camTracking = false
-            App.instance.gui.refresh()
+            AppState.camTracking = false
+            AppGui.refresh()
         }
     })
     cameraControls.dollyDragInverted = true

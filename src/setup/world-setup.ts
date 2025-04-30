@@ -6,17 +6,12 @@ import {
     asVect2, getPatchId,
     BlocksTask,
     createWorldModules,
-    ItemsTask,
-    SpawnChunk,
     BlockType,
 } from '@aresrpg/aresrpg-world';
 import { chunksWsClient } from '../../../aresrpg-world/test/utils/chunks_over_ws_client';
-import { Box2, Vector2, Vector3 } from 'three';
+import { Vector2, Vector3 } from 'three';
 import workerUrl from '@aresrpg/aresrpg-world/worker?url'
 import { AppState } from '../app-context';
-import { WorldTasksHandlers } from '../../../aresrpg-world/src';
-import { DiscardedSlot } from '../../../aresrpg-world/src/processing/ItemsProcessing';
-import { SpawnData } from '../../../aresrpg-world/src/factory/ChunksFactory';
 import { floatToVect2Array } from '../utils/utils';
 
 /**
@@ -139,7 +134,7 @@ export const init_lod_blocks_provider = (world_demo_env: WorldLocals) => {
     return { lod_blocks_provider, cancelAllLodTasks }
 }
 
-export const get_board_provider = (worldEnv: WorldLocals, chunksDataEncoder: any, boardPos: Vector3) => {
+export const get_board_provider = (worldEnv: WorldLocals, boardPos: Vector3) => {
     const board_dedicated_worker_pool = new WorkerPool()
     board_dedicated_worker_pool.initPoolEnv(1, worldEnv)
 
@@ -148,7 +143,6 @@ export const get_board_provider = (worldEnv: WorldLocals, chunksDataEncoder: any
         const board_processor = new BoardProvider(
             boardPos,
             cache_prov,
-            chunksDataEncoder,
             worldEnv
         )
 
@@ -164,24 +158,8 @@ export const get_board_provider = (worldEnv: WorldLocals, chunksDataEncoder: any
     return buildBoard
 }
 
-export type MapDataProvider = (input: Box2) => SpawnChunk[]
-export type AsyncMapDataProvider = (input: Box2) => Promise<(SpawnData | DiscardedSlot)[]>
-
-export const getMapDataProvider = (taskHandlers: WorldTasksHandlers) => (input: Box2) => {
-    const itemsTask = new ItemsTask().spawnedElements(input)
-    itemsTask.processingParams.skipPostprocessing = true
-    itemsTask.processingParams.skipPruning = false
-    const spawnedElements = itemsTask.process(taskHandlers) as SpawnChunk[]
-    return spawnedElements
-}
-
-export const getAsyncMapDataProvider = (workerpool: WorkerPool) => async (input: Box2) => {
-    const itemsTask = new ItemsTask().spawnedElements(input)
-    itemsTask.processingParams.skipPostprocessing = true
-    itemsTask.processingParams.skipPruning = false
-    const spawnedElements = await itemsTask.delegate(workerpool) as (SpawnData | DiscardedSlot)[]
-    return spawnedElements
-}
+// export type MapDataProvider = (input: Box2) => SpawnChunk[]
+// export type AsyncMapDataProvider = (input: Box2) => Promise<(SpawnData | DiscardedSlot)[]>
 
 
 // async function board_chunks_provider(position = new Vector3(), board_dedicated_worker_pool) {

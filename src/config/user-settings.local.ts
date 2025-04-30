@@ -10,6 +10,10 @@ export const MAP_POI = {
     bug2: { x: 1375, y: 192, z: -97 },
     bug3: { x: 1588, y: 192, z: -72 },
     bug4: { x: 570, y: 192, z: -1670 },
+    bug5: { x: 2200, y: 192, z: -2050 },
     spriteDemo: { x: 1600, y: 170, z: -1530 },
+    boardBug: { x: 490, y: 110, z: -597 },
+    landPlane: { x: -420, y: 210, z: 47 },
+    bug6: { x: -410, y: 194, z: 127 },
 }
 

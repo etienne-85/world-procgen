@@ -1,5 +1,6 @@
 export const CHUNK_AXIS_ORDER = 'zxy'
-export const CHUNK_SIZE = { xz: 64, y: 64 };
+export const PATCH_SIZE = 64
+export const CHUNK_SIZE = { xz: PATCH_SIZE, y: PATCH_SIZE };
 export const CHUNKS_RANGE = { bottom: 0, top: 5 }
 export const WORLD_ALTITUDE_RANGE = { min: -1, max: 400 }
 export const CAMERA_MIN_DISTANCE = 0.001
