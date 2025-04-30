@@ -14,6 +14,7 @@ import {
 import { CHUNK_AXIS_ORDER, CHUNK_SIZE, CHUNKS_RANGE, WORLD_ALTITUDE_RANGE } from '../config/app-settings'
 import { Color } from 'three'
 import { fake_lod_data_provider } from './world-setup'
+import { SPRITES_CONF_MAPPING } from '../../../aresrpg-world/test/configs/blocks_mappings'
 
 const USE_FAKE_LOD_DATA = false
 
@@ -27,16 +28,16 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
         altitude: WORLD_ALTITUDE_RANGE,
         voxelTypesDefininitions: {
             solidMaterials: voxel_materials_list,
-            clutterVoxels: [{
+            clutterVoxels: Object.values(SPRITES_CONF_MAPPING).map(sprite => ({
                 type: 'grass-2d' as 'grass-2d',
-                texture: new THREE.TextureLoader().load('grass-2d.png', texture => {
+                texture: new THREE.TextureLoader().load(sprite.file, texture => {
                     texture.magFilter = THREE.NearestFilter;
                     texture.minFilter = THREE.NearestFilter;
                     texture.colorSpace = THREE.LinearSRGBColorSpace;
                 }),
-                width: 4 / 4,
-                height: 3 / 4,
-            }],
+                width: sprite.width,
+                height: sprite.height,
+            })),
         },
         waterLevel: 0,
         getWaterColorForPatch(
@@ -72,6 +73,7 @@ export function init_voxel_engine(blocks_color_mapping: any, blocksProvider: any
         },
         voxelsChunkOrdering: CHUNK_AXIS_ORDER,
     })
+    clutter_viewer.parameters.viewDistance = 2000
 
     const voxelmap_viewer = new VoxelmapViewer({
         chunkSize: CHUNK_SIZE,
