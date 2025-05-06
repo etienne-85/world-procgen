@@ -1,16 +1,18 @@
-import { BlockType, DataChunkStub, parseChunkKey, parseThreeStub, WorldGlobals } from '@aresrpg/aresrpg-world';
-import { BLOCKS_COLOR_MAPPING } from '../../../aresrpg-world/test/configs/blocks_mappings';
+import { asVect2, BlockType, DataChunkStub, parseChunkKey, parseThreeStub, WorldGlobals, WorldModules } from '@aresrpg/aresrpg-world';
+import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../../aresrpg-world/test/configs/blocks_mappings';
 import { getWorldDemoEnv } from '../../../aresrpg-world/test/configs/world_demo_setup';
 import { SCHEMATICS_FILES_INDEX } from '../assets/schematics_index';
 import { init_voxel_engine } from './engine-setup';
 import { init_graphics } from './graphics-setup';
 import { Vector3 } from 'three';
-import { get_board_provider, init_lod_blocks_provider, initWorldMainProvider } from './world-setup';
+import { get_board_provider, init_lod_blocks_provider, initGlobalPurposeWorkerpool, initWorldMainProvider } from './world-setup';
 import { PhysicsEngine } from './physics-setup';
 import { init_controls } from '../modules/controls';
 import { AppApi, AppContext, AppState, initThreeStats } from '../app-context';
-import { initUIPanel } from './gui-setup';
 import { MAP_POI } from '../config/user-settings.local';
+import { initUIPanel } from './gui-setup';
+import { Minimap } from '../minimap/minimap';
+import { GroundRenderLayer, NoiseRenderLayer } from '../minimap/map-render-layer';
 
 const populatePOIContext = () => {
     const gotoPOI: Record<string, any> = {}
@@ -25,7 +27,8 @@ const populateAppContext = () => {
     // Context
     const playerPos = PhysicsEngine.instance().player.container.position
     const patchCoords = playerPos.clone()
-    AppContext.state.add({ playerPos, patchCoords })
+    const lastPatchCoords = patchCoords.clone()
+    AppContext.state.add({ playerPos, patchCoords, lastPatchCoords })
     const camTracking = true
     AppContext.state.add({ camTracking })
     const gotoPOI = populatePOIContext()
@@ -39,11 +42,11 @@ const populateAppContext = () => {
 const setupProceduralEnv = () => {
     const worldEnv = getWorldDemoEnv()
     // worldEnv.itemsEnv.schematics.filesIndex = SCHEMATICS_FILES_INDEX
-    worldEnv.rawSettings.items.schematics.filesIndex = SCHEMATICS_FILES_INDEX
+    worldEnv.rawSettings.inventory.schematics.filesIndex = SCHEMATICS_FILES_INDEX
     // world_demo_env.rawSettings.biomes.repartition.centralHalfSegment = 0.07
     const worldGlobals = new WorldGlobals()
     // worldGlobals.debug.logs = true
-    // worldGlobals.debug.patch.borderHighlightColor = ExtBlock.DBG_LIGHT
+    worldGlobals.debug.patch.borderHighlightColor = ExtBlock.DBG_LIGHT
     worldGlobals.debug.schematics.missingBlockType = BlockType.HOLE
     worldEnv.rawSettings.globals = worldGlobals.export()
     // worldEnv.rawSettings.distribution.mapPatchRange = 1
@@ -54,7 +57,7 @@ const setupProceduralEnv = () => {
 /**
  * Chunks
  */
-const setup_chunks_rendering = (voxelmap_viewer: any) => {
+const setup_chunks_rendering = (voxelmap_viewer: any, disablePatchLod: any) => {
 
     const chunk_data_formatter = (chunk_data: DataChunkStub) => {
         const { metadata, rawdata } = chunk_data
@@ -78,7 +81,7 @@ const setup_chunks_rendering = (voxelmap_viewer: any) => {
         return engine_chunk
     }
 
-    const world_chunk_renderer = (chunk_data,
+    const world_chunk_renderer = (chunk_data: DataChunkStub,
         {
             ignore_collision = true,
             skip_formatting = false,
@@ -91,6 +94,8 @@ const setup_chunks_rendering = (voxelmap_viewer: any) => {
         voxelmap_viewer.invalidateChunk(engine_chunk.id)
         // @ts-ignore
         voxelmap_viewer.enqueueChunk(engine_chunk.id, engine_chunk.voxels_chunk_data)
+        const patchId = asVect2(engine_chunk.id)
+        disablePatchLod(patchId)
         // terrain_viewer.update(renderer)
         // if (!ignore_collision)
         //   // @ts-ignore
@@ -100,6 +105,17 @@ const setup_chunks_rendering = (voxelmap_viewer: any) => {
     return world_chunk_renderer
 }
 
+const setupMinimap = (worldProvider: WorldModules) => {
+    const { worldLocalEnv, spawn } = worldProvider
+    const minimapContainer = document.querySelector<HTMLCanvasElement>('#minimap') as HTMLCanvasElement
+    const patchDim = worldLocalEnv.getPatchDimensions()
+    const noiseSource = spawn.spawnDistributionNoise //spawnDistributionMap.spawnDistributionLaw
+    // noiseSource.params.scaling*=2
+    const noiseRenderLayer = new NoiseRenderLayer(patchDim, noiseSource)
+    const groundRenderLayer = new GroundRenderLayer(patchDim, worldProvider)
+    const minimap = new Minimap(minimapContainer, [groundRenderLayer, noiseRenderLayer])
+    return minimap
+}
 
 export const demo_main_setup = async () => {
     // Procedural settings
@@ -112,7 +128,7 @@ export const demo_main_setup = async () => {
     const { lod_blocks_provider, cancelAllLodTasks } = init_lod_blocks_provider(world_demo_env)
     // Voxels
     const blocks_color_mapping = Object.values(BLOCKS_COLOR_MAPPING)
-    const { voxelmap_viewer, terrain_viewer, heightmap_atlas, clutter_viewer, set_water_level } = init_voxel_engine(blocks_color_mapping, lod_blocks_provider)
+    const { voxelmap_viewer, terrain_viewer, heightmap_atlas, clutter_viewer, disablePatchLod, set_water_level } = init_voxel_engine(blocks_color_mapping, lod_blocks_provider)
     terrain_viewer.setLod(camera.position, 50, camera.far)
     // terrain_viewer.parameters.lod.enabled = true
     terrain_viewer.update(renderer)
@@ -124,7 +140,7 @@ export const demo_main_setup = async () => {
     // Physics
     PhysicsEngine.instance(scene, camera)
     // Chunks rendering
-    const renderWorldChunk = setup_chunks_rendering(voxelmap_viewer)
+    const renderWorldChunk = setup_chunks_rendering(voxelmap_viewer, disablePatchLod)
     // App context
     populateAppContext()
     // UI
@@ -170,7 +186,7 @@ export const demo_main_setup = async () => {
 
     // Minimap
     // const patchDims = world_demo_env.getPatchDimensions()
-    // setupMinimap(worldMainProvider)
+    setupMinimap(worldMainProvider)
 
     // Three stats
     const { updateThreeStats } = initThreeStats(renderer)

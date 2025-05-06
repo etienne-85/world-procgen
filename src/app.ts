@@ -30,7 +30,8 @@ import { PhysicsEngine } from './setup/physics-setup';
 import { AppContext, AppState } from './app-context';
 import { VIEW_DIST } from './config/app-settings';
 import { demo_main_setup } from './setup/app-setup'
-// import { Minimap } from './modules/minimap';
+import { Minimap } from './minimap/minimap';
+import { asVect2 } from '@aresrpg/aresrpg-world';
 
 /**
  * Initial setup
@@ -108,7 +109,7 @@ const on_frame_update_loop = () => {
   AppState.camTracking && follow_player(player_pos);
   updateThreeStats(frameCount);
   (frameCount % UI_REFRESH_RATE === 0) && refreshUIPanel();
-  // (frameCount % MINIMAP_REFRESH_RATE === 0) && Minimap.refresh();
+  (frameCount % MINIMAP_REFRESH_RATE === 0) && Minimap.currentMap.refresh(asVect2(player_pos))
   cameraControls.update(delta);
   renderer.render(scene, camera);
 }

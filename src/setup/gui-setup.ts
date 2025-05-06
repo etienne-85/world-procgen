@@ -1,10 +1,10 @@
-import { getChunkId } from "@aresrpg/aresrpg-world";
+import { asVect2, getChunkId } from "@aresrpg/aresrpg-world";
 import { AppContext, AppState } from "../app-context";
 import { WorldLocals } from "../../../aresrpg-world/src";
 
-const populatePOIpanel = () => {
+// const populatePOIpanel = () => {
 
-}
+// }
 
 export const initUIPanel = (worldEnv: WorldLocals) => {
     const playerPosElement = AppContext.gui.addBinding(AppState, 'playerPos', {
@@ -30,9 +30,18 @@ export const initUIPanel = (worldEnv: WorldLocals) => {
     //     label: 'track',
     // })
 
+    // const onPatchChange = ()=>{
+    //     // request patch center block info (biome, land)
+
+    // }
+
     const updatePatchCoords = () => {
-        const { playerPos, patchCoords } = AppState
+        const { playerPos, patchCoords, lastPatchCoords } = AppState
         const chunkId = getChunkId(playerPos, worldEnv.getChunkDimensions())
+        const patchId = asVect2(chunkId)
+       if(!patchId.equals(lastPatchCoords)) {
+        lastPatchCoords.set(patchId.x, patchId.y)
+       }
         patchCoords.set(chunkId.x, chunkId.y, chunkId.z)
     }
     updatePatchCoords()
