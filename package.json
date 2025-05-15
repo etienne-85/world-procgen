@@ -12,14 +12,21 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.26.0",
     "@tweakpane/core": "^2.0.5",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "eslint": "^9.26.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-import": "^2.31.0",
+    "jiti": "^2.4.2",
     "prettier": "^3.5.3",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
   },
   "dependencies": {
     "@aresrpg/aresrpg-engine": "^2.7.15",
-    "@aresrpg/aresrpg-world": "^2.0.8",
+    "@aresrpg/aresrpg-world": "../aresrpg-world/",
     "@types/three": "^0.175.0",
     "camera-controls": "^2.10.0",
     "three": "^0.175.0",
