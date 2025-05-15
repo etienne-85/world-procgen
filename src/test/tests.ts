@@ -1,7 +1,6 @@
-import { BlocksTask, WorkerPool, WorldLocals, SpawnChunk, WorldModules, WorldTasksHandlers, createWorldModules } from "@aresrpg/aresrpg-world"
-import { Box2, Vector2 } from "three"
-import { ItemsTask } from "../../../aresrpg-world/src"
-import { SpawnChunkStub } from "../../../aresrpg-world/dist/factory/ChunksFactory"
+import { BlocksTask, WorkerPool, WorldLocals, SpawnChunk, WorldTasksHandlers, createWorldModules } from '@aresrpg/aresrpg-world'
+import { Box2, Vector2 } from 'three'
+import { ItemsTask } from '../../../aresrpg-world/src'
 
 const setupTestEnv = async (worldEnv: WorldLocals) => {
     const testWorkerpool = new WorkerPool('tests')
@@ -17,7 +16,7 @@ const testSpawnOverHolePruning = async (taskHandlers: WorldTasksHandlers) => {
     const holeDims = new Vector2(holeRadius, holeRadius)
     const holeArea = new Box2().setFromCenterAndSize(holeCenter, holeDims)
     // request schematics over hole
-    const spawnTask = new ItemsTask().spawnedChunks(holeArea)
+    const spawnTask = new ItemsTask().sparsedChunks(holeArea)
     spawnTask.processingParams.spawnInsideAreaOnly = true
     const spawnedChunks = spawnTask.process(taskHandlers) as SpawnChunk[]
     const blocksProvider = (input: any) => {
@@ -33,6 +32,6 @@ const testSpawnOverHolePruning = async (taskHandlers: WorldTasksHandlers) => {
 }
 
 export const runTests = async (worldEnv: WorldLocals) => {
-    const { testWorkerpool, worldProvider } = await setupTestEnv(worldEnv)
+    const { worldProvider } = await setupTestEnv(worldEnv)
     await testSpawnOverHolePruning(worldProvider.taskHandlers)
 }

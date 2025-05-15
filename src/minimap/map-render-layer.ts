@@ -1,12 +1,13 @@
-import { Box2, Vector2 } from "three";
-import { GroundPatch } from "../../../aresrpg-world/src/processing/GroundPatch";
-import { RenderPatchHelper } from "./render-patch";
-import { Noise2dSampler } from "../../../aresrpg-world/src/procgen/NoiseSampler";
-import { patchRangeToBounds } from "../../../aresrpg-world/src/utils/patch_chunk";
-import { BlockType, getPatchId, WorldModules } from "@aresrpg/aresrpg-world";
-import { PatchDataStub } from "../../../aresrpg-world/src/datacontainers/PatchContainer";
-import { MapDatasource, NoisePatch, PatchCache } from "./map-datasource";
-import { BLOCKS_COLOR_MAPPING } from "../../../aresrpg-world/test/configs/blocks_mappings";
+import { Box2, Vector2 } from 'three'
+import { RenderPatchHelper } from './render-patch'
+import { Noise2dSampler } from '../../../aresrpg-world/src/procgen/NoiseSampler'
+import { patchRangeToBounds } from '../../../aresrpg-world/src/utils/patch_chunk'
+import { asVect2, BlockType, getPatchId, GroundPatch, Spawn, WorldModules } from '@aresrpg/aresrpg-world'
+import { PatchDataStub, SparseDataPatch, SparseDataStub } from '../../../aresrpg-world/src/datacontainers/PatchContainer'
+import { MapDatasource, NoisePatch, PatchCache, SpawnDataPatch, SpawnSlot, SpawnSpotsPatch } from './map-datasource'
+import { BLOCKS_COLOR_MAPPING } from '../../../aresrpg-world/test/configs/blocks_mappings'
+import { SparseDistributionMap } from '../../../aresrpg-world/src/procgen/SparseDistributionMap'
+import { SpawnData } from '../../../aresrpg-world/src/factory/ChunksFactory'
 
 // type MapCacheData = {
 //     dataStub: PatchDataStub
@@ -26,8 +27,8 @@ export abstract class MapRenderLayer {
     constructor(patchDim: Vector2) {
         this.patchDim = patchDim
         // this.patchRenderer = patchRenderer
-        this.offscreenCanvas = document.createElement('canvas');
-        this.offscreenContext = this.offscreenCanvas.getContext('2d') as CanvasRenderingContext2D;
+        this.offscreenCanvas = document.createElement('canvas')
+        this.offscreenContext = this.offscreenCanvas.getContext('2d') as CanvasRenderingContext2D
     }
 
     get patchIndexRange() {
@@ -42,16 +43,14 @@ export abstract class MapRenderLayer {
     get mapDimensions() {
         const { mapDatasource, patchDim } = this
         const { patchRange } = mapDatasource
-        const mapBounds = patchRangeToBounds(patchRange, patchDim)//.add(this.patchDim)
-        const mapDim = mapBounds.getSize(new Vector2).add(this.patchDim)
+        const mapBounds = patchRangeToBounds(patchRange, patchDim) //.add(this.patchDim)
+        const mapDim = mapBounds.getSize(new Vector2()).add(this.patchDim)
         return mapDim
     }
 
-    getPatchCanvasHelper() {
+    getPatchCanvasHelper() {}
 
-    }
-
-    abstract renderPatch(patchDataStub: PatchDataStub): ImageData
+    abstract renderPatch(patchDataStub: PatchDataStub | SparseDataStub<any>): ImageData
 
     /**
      * render patches from top left to bottom right
@@ -87,23 +86,21 @@ export abstract class MapRenderLayer {
     }
 }
 
-
 export class NoiseRenderLayer extends MapRenderLayer {
-
-    mapDatasource: MapDatasource;
+    mapDatasource: MapDatasource
 
     constructor(patchDim: Vector2, noiseSource: Noise2dSampler) {
-        super(patchDim,);
-        const noisePatchProvider = (patchKey: string) => {
+        super(patchDim)
+        const patchProvider = (patchKey: string) => {
             const patch = new NoisePatch().fromKey(patchKey, patchDim)
             patch.fill(noiseSource)
             return patch.toStub()
         }
-        this.mapDatasource = new MapDatasource(noisePatchProvider)
+        this.mapDatasource = new MapDatasource(patchProvider)
     }
 
     renderPatch(patchDataStub: PatchDataStub): ImageData {
-        const { x: width, y: height } = patchDataStub.metadata.bounds.getSize(new Vector2)
+        const { x: width, y: height } = patchDataStub.metadata.bounds.getSize(new Vector2())
         const patchRenderHelper = new RenderPatchHelper(width, height)
         const patch = new NoisePatch().fromStub(patchDataStub)
         for (const block of patch.iterData()) {
@@ -114,39 +111,37 @@ export class NoiseRenderLayer extends MapRenderLayer {
         }
         return patchRenderHelper.toStub()
     }
-
 }
 
 export class GroundRenderLayer extends MapRenderLayer {
     worldProvider: WorldModules
-    mapDatasource: MapDatasource;
+    mapDatasource: MapDatasource
     constructor(patchDim: Vector2, worldProvider: WorldModules) {
-        super(patchDim);
+        super(patchDim)
         this.worldProvider = worldProvider
-        const groundPatchProvider = (patchKey: string) => {
+        const patchProvider = (patchKey: string) => {
             const patch = new GroundPatch(undefined, 0).fromKey(patchKey, patchDim)
             patch.bake(worldProvider)
             return patch.toStub()
         }
-        this.mapDatasource = new MapDatasource(groundPatchProvider)
+        this.mapDatasource = new MapDatasource(patchProvider)
     }
 
     renderPatch(patchDataStub: PatchDataStub): ImageData {
         const { ground } = this.worldProvider
-        const { x: width, y: height } = patchDataStub.metadata.bounds.getSize(new Vector2)
+        const { x: width, y: height } = patchDataStub.metadata.bounds.getSize(new Vector2())
         const patchRenderHelper = new RenderPatchHelper(width, height)
         const patch = new GroundPatch(undefined, 0).fromStub(patchDataStub)
         for (const block of patch.iterData()) {
             const { localPos, data } = block
-
             if (data) {
-                const { level, biome, landIndex } = data
+                const { biome, landIndex } = data
                 const biomeLand = ground.biomes[biome].nth(landIndex).data
                 const blockType = biomeLand.type as BlockType
-                const blockColor = BLOCKS_COLOR_MAPPING[blockType]
-                const rescaledLevel = Math.min(0.75 * level, 256)
+                const blockColor = BLOCKS_COLOR_MAPPING[blockType].color
+                // const rescaledLevel = Math.min(0.75 * level, 256)
 
-                const color = "#" + blockColor.toString(16).padStart(6, '0');  //`rgb(${rescaledLevel}, ${rescaledLevel}, ${rescaledLevel})`
+                const color = '#' + blockColor.toString(16).padStart(6, '0') //`rgb(${rescaledLevel}, ${rescaledLevel}, ${rescaledLevel})`
                 const radius = 1
                 patchRenderHelper.drawPoint(localPos, { color, radius })
             }
@@ -155,6 +150,70 @@ export class GroundRenderLayer extends MapRenderLayer {
     }
 }
 
-export class SpawnRenderLayer {
+export class SpotsRenderLayer extends MapRenderLayer {
+    mapDatasource: MapDatasource
 
+    constructor(patchDim: Vector2, sparseDatasource: SparseDistributionMap) {
+        super(patchDim)
+        const patchProvider = (patchKey: string) => {
+            const patch = new SpawnSpotsPatch().fromKey(patchKey, patchDim)
+            patch.fill(sparseDatasource)
+            return patch.toStub()
+        }
+        this.mapDatasource = new MapDatasource(patchProvider)
+    }
+
+    // renderFilter() {
+    //     const spawnSize = parseInt(type)
+    //     const selectedSize = filterSizeMappings[mapMode]
+    //     const color = spawnSize === selectedSize ? 'red' : 'white'
+    //     const radius = spawnSize === selectedSize ? selectedSize > 8 ? 4 : 2 : 1 //maxSpawnRadius * sizeMultiplier
+    //     Minimap.drawPoint(mapPos, { color, radius })
+    //     spawnSize >= selectedSize && selectedSize > 8 && Minimap.drawCircle(mapPos, selectedSize / 2)
+    // }
+
+    renderPatch(sparseDataStub: SparseDataStub<SpawnSlot>): ImageData {
+        const { sparsedata } = sparseDataStub
+        const color = 'black'
+        const radius = 2
+        const { x: width, y: height } = sparseDataStub.metadata.bounds.getSize(new Vector2())
+        const patchRenderHelper = new RenderPatchHelper(width, height)
+        const patch = new SparseDataPatch(undefined, 0).fromStub(sparseDataStub)
+        sparsedata.forEach(slotData => {
+            const { slotPos } = slotData
+            const localPos = patch.toLocalPos(slotPos)
+            patchRenderHelper.drawPoint(localPos, { color, radius })
+        })
+        return patchRenderHelper.toStub()
+    }
+}
+
+export class SpawnRenderLayer extends MapRenderLayer {
+    mapDatasource: MapDatasource
+
+    constructor(patchDim: Vector2, sparseDatasource: Spawn) {
+        super(patchDim)
+        const patchProvider = (patchKey: string) => {
+            const patch = new SpawnDataPatch().fromKey(patchKey, patchDim)
+            patch.fill(sparseDatasource)
+            return patch.toStub()
+        }
+        this.mapDatasource = new MapDatasource(patchProvider)
+    }
+
+    renderPatch(sparseDataStub: SparseDataStub<SpawnData>): ImageData {
+        const { sparsedata } = sparseDataStub
+        const color = 'black' //isDiscarded ? '#505050' : 'white'
+        const radius = 2 //maxSpawnRadius * sizeMultiplier
+        const { x: width, y: height } = sparseDataStub.metadata.bounds.getSize(new Vector2())
+        const patchRenderHelper = new RenderPatchHelper(width, height)
+        // patchRenderHelper.background('black')
+        const patch = new SpawnDataPatch(undefined, 0).fromStub(sparseDataStub)
+        sparsedata.forEach(spawnData => {
+            const { spawnOrigin } = spawnData
+            const localPos = patch.toLocalPos(asVect2(spawnOrigin))
+            patchRenderHelper.drawPoint(localPos, { color, radius })
+        })
+        return patchRenderHelper.toStub()
+    }
 }

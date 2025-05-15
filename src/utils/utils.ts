@@ -1,4 +1,4 @@
-import { Vector2 } from "three"
+import { Vector2 } from 'three'
 
 export const floatToVect2Array = (inputData: Float32Array) => {
     const outputData = []

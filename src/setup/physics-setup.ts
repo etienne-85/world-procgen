@@ -2,28 +2,42 @@
 
 // import { TestBase } from './test-base';
 import {
-    // ClutterViewer, 
-    // EComputationMethod, 
-    // IVoxelMap, 
-    // MaterialsStore, 
-    // PromisesQueue, 
-    // VoxelmapViewer, 
-    // VoxelmapVisibilityComputer, 
+    // ClutterViewer,
+    // EComputationMethod,
+    // IVoxelMap,
+    // MaterialsStore,
+    // PromisesQueue,
+    // VoxelmapViewer,
+    // VoxelmapVisibilityComputer,
     // VoxelsChunkOrdering,
     VoxelmapCollider,
     VoxelmapCollisions,
-} from '@aresrpg/aresrpg-engine';
-import * as THREE from 'three';
-import { Mesh, Sphere, Vector3, Object3D, Scene, CylinderGeometry, Group, MeshBasicMaterial, SphereGeometry, PerspectiveCamera, MeshPhongMaterial, Vector3Like } from 'three';
-import { CHUNK_AXIS_ORDER, CHUNK_SIZE, PLAYER_SPEED } from '../config/app-settings';
+} from '@aresrpg/aresrpg-engine'
+import * as THREE from 'three'
+import {
+    Mesh,
+    Sphere,
+    Vector3,
+    Object3D,
+    Scene,
+    CylinderGeometry,
+    Group,
+    MeshBasicMaterial,
+    SphereGeometry,
+    PerspectiveCamera,
+    MeshPhongMaterial,
+    Vector3Like,
+} from 'three'
+import { CHUNK_AXIS_ORDER, CHUNK_SIZE, PLAYER_SPEED } from '../config/app-settings'
 
 type SolidSphere = {
-    readonly mesh: Mesh;
-    readonly collider: Sphere;
-    readonly velocity: Vector3;
-};
+    readonly mesh: Mesh
+    readonly collider: Sphere
+    readonly velocity: Vector3
+}
 
-export class PhysicsEngine { //extends TestBase {
+export class PhysicsEngine {
+    //extends TestBase {
     // private readonly map: IVoxelMap;
 
     // private readonly clutterViewer: ClutterViewer;
@@ -36,42 +50,41 @@ export class PhysicsEngine { //extends TestBase {
     static instance(scene?: Scene, camera?: PerspectiveCamera) {
         if (!this.singleton) {
             if (scene && camera) {
-                this.singleton = new PhysicsEngine(scene, camera);
-            }
-            else {
+                this.singleton = new PhysicsEngine(scene, camera)
+            } else {
                 console.warn('no instance exists. need to provide arguments to create one first.')
             }
         } else if (scene && camera) {
             console.warn('arguments detected, cannot create more than on instance.')
         }
-        return this.singleton; // Return the singleton instance
+        return this.singleton // Return the singleton instance
     }
 
-    private readonly voxelmapCollider: VoxelmapCollider;
-    private readonly voxelmapCollisions: VoxelmapCollisions;
+    private readonly voxelmapCollider: VoxelmapCollider
+    private readonly voxelmapCollisions: VoxelmapCollisions
 
     private readonly ray: {
-        readonly group: Object3D;
-        readonly mesh: Mesh;
-        readonly intersectionMesh: Mesh;
-    };
+        readonly group: Object3D
+        readonly mesh: Mesh
+        readonly intersectionMesh: Mesh
+    }
 
-    private readonly spheres: SolidSphere[] = [];
+    private readonly spheres: SolidSphere[] = []
 
     readonly player: {
         readonly size: {
-            readonly radius: number;
-            readonly height: number;
-        };
+            readonly radius: number
+            readonly height: number
+        }
 
-        readonly container: Object3D;
-        readonly velocity: Vector3;
-    };
+        readonly container: Object3D
+        readonly velocity: Vector3
+    }
 
-    private lastUpdate: number | null = null;
+    private lastUpdate: number | null = null
 
-    private readonly keyDown = new Map<string, boolean>();
-    private readonly keysPressed: Set<string> = new Set();
+    private readonly keyDown = new Map<string, boolean>()
+    private readonly keysPressed: Set<string> = new Set()
 
     camera: PerspectiveCamera
 
@@ -146,33 +159,30 @@ export class PhysicsEngine { //extends TestBase {
 
         this.voxelmapCollider = new VoxelmapCollider({
             chunkSize: { x: CHUNK_SIZE.xz, y: CHUNK_SIZE.y, z: CHUNK_SIZE.xz },
-            voxelsChunkOrdering: CHUNK_AXIS_ORDER
-        });
-        this.voxelmapCollisions = new VoxelmapCollisions({ voxelmapCollider: this.voxelmapCollider });
+            voxelsChunkOrdering: CHUNK_AXIS_ORDER,
+        })
+        this.voxelmapCollisions = new VoxelmapCollisions({ voxelmapCollider: this.voxelmapCollider })
 
         // this.displayMap();
 
-        const rayGroup = new Group();
-        rayGroup.name = 'ray-group';
-        rayGroup.position.set(0, 170, 0);
-        rayGroup.rotateX(0.7 * Math.PI);
-        scene.add(rayGroup);
+        const rayGroup = new Group()
+        rayGroup.name = 'ray-group'
+        rayGroup.position.set(0, 170, 0)
+        rayGroup.rotateX(0.7 * Math.PI)
+        scene.add(rayGroup)
 
-        const rayMesh = new Mesh(new CylinderGeometry(0.07, 0.07, 1), new MeshBasicMaterial({ color: 0xffffff }));
-        rayMesh.position.set(0, 0.5, 0);
-        rayGroup.add(rayMesh);
-        const rayIntersectionMesh = new Mesh(
-            new SphereGeometry(0.4, 8, 8),
-            new MeshBasicMaterial({ color: 0xffffff, wireframe: true })
-        );
-        rayIntersectionMesh.position.set(0, 1, 0);
-        rayGroup.add(rayIntersectionMesh);
+        const rayMesh = new Mesh(new CylinderGeometry(0.07, 0.07, 1), new MeshBasicMaterial({ color: 0xffffff }))
+        rayMesh.position.set(0, 0.5, 0)
+        rayGroup.add(rayMesh)
+        const rayIntersectionMesh = new Mesh(new SphereGeometry(0.4, 8, 8), new MeshBasicMaterial({ color: 0xffffff, wireframe: true }))
+        rayIntersectionMesh.position.set(0, 1, 0)
+        rayGroup.add(rayIntersectionMesh)
 
         this.ray = {
             group: rayGroup,
             mesh: rayMesh,
             intersectionMesh: rayIntersectionMesh,
-        };
+        }
         // const rayControls = new THREE.TransformControls(this.camera, this.renderer.domElement);
         // rayControls.addEventListener('dragging-changed', event => {
         //     this.cameraControl.enabled = !event.value;
@@ -181,55 +191,55 @@ export class PhysicsEngine { //extends TestBase {
         // rayControls.attach(rayGroup);
         // scene.add(rayControls.getHelper());
 
-        this.setRayLength(10);
+        this.setRayLength(10)
 
         const playerSize = {
             radius: 0.2,
             height: 1.4,
-        };
+        }
         const playerMesh = new Mesh(
             new CylinderGeometry(playerSize.radius, playerSize.radius, playerSize.height),
-            new MeshPhongMaterial({ color: 0xdddddd })
-        );
-        playerMesh.name = 'player';
-        const playerContainer = new Group();
-        playerContainer.name = 'player-container';
-        playerContainer.add(playerMesh);
-        playerMesh.position.y = playerSize.height / 2;
-        playerContainer.position.y = 160;
+            new MeshPhongMaterial({ color: 0xdddddd }),
+        )
+        playerMesh.name = 'player'
+        const playerContainer = new Group()
+        playerContainer.name = 'player-container'
+        playerContainer.add(playerMesh)
+        playerMesh.position.y = playerSize.height / 2
+        playerContainer.position.y = 160
 
         this.player = {
             size: playerSize,
             container: playerContainer,
             velocity: new Vector3(0, 0, 0),
-        };
-        scene.add(this.player.container);
+        }
+        scene.add(this.player.container)
 
-        const sphereRadius = 1.1;
-        const sphereMesh = new Mesh(new SphereGeometry(sphereRadius), new MeshPhongMaterial({ color: 0xdddddd }));
-        sphereMesh.name = 'sphere';
+        const sphereRadius = 1.1
+        const sphereMesh = new Mesh(new SphereGeometry(sphereRadius), new MeshPhongMaterial({ color: 0xdddddd }))
+        sphereMesh.name = 'sphere'
 
         window.addEventListener('keyup', event => {
             if (event.code === 'KeyP') {
-                const direction = camera.getWorldDirection(new Vector3());
-                const position = camera.getWorldPosition(new Vector3()).addScaledVector(direction, 2);
-                const mesh = sphereMesh.clone();
-                mesh.position.copy(position);
-                const collider = new Sphere(position, sphereRadius);
-                const velocity = new Vector3().addScaledVector(direction, 80);
+                const direction = camera.getWorldDirection(new Vector3())
+                const position = camera.getWorldPosition(new Vector3()).addScaledVector(direction, 2)
+                const mesh = sphereMesh.clone()
+                mesh.position.copy(position)
+                const collider = new Sphere(position, sphereRadius)
+                const velocity = new Vector3().addScaledVector(direction, 80)
 
-                const solidSphere: SolidSphere = { mesh, collider, velocity };
-                scene.add(solidSphere.mesh);
-                this.spheres.push(solidSphere);
+                const solidSphere: SolidSphere = { mesh, collider, velocity }
+                scene.add(solidSphere.mesh)
+                this.spheres.push(solidSphere)
             }
 
-            this.keyDown.set(event.code, false);
-            this.keysPressed.add(event.code);
-        });
+            this.keyDown.set(event.code, false)
+            this.keysPressed.add(event.code)
+        })
         window.addEventListener('keydown', event => {
             // console.log(event.code)
-            this.keyDown.set(event.code, true);
-        });
+            this.keyDown.set(event.code, true)
+        })
 
         this.camera = camera
     }
@@ -237,20 +247,20 @@ export class PhysicsEngine { //extends TestBase {
     update(): void {
         for (const [keyCode, isPressed] of this.keyDown.entries()) {
             if (isPressed && keyCode !== 'Space') {
-                this.keysPressed.add(keyCode);
+                this.keysPressed.add(keyCode)
             }
         }
 
-        this.updateRay();
-        this.updateSpheresAndPlayer();
+        this.updateRay()
+        this.updateSpheresAndPlayer()
     }
 
     private updateRay(): void {
-        const maxDistance = 500;
+        const maxDistance = 500
         const ray = new THREE.Ray(
             this.ray.group.getWorldPosition(new THREE.Vector3()),
-            new THREE.Vector3(0, 1, 0).transformDirection(this.ray.group.matrixWorld)
-        );
+            new THREE.Vector3(0, 1, 0).transformDirection(this.ray.group.matrixWorld),
+        )
         const intersectionResult = this.voxelmapCollisions.rayIntersect(ray, {
             maxDistance,
             side: THREE.DoubleSide,
@@ -258,44 +268,44 @@ export class PhysicsEngine { //extends TestBase {
                 considerAsBlocking: false,
                 exportAsList: true,
             },
-        });
-        const intersectionDistance = intersectionResult?.intersection?.distance ?? maxDistance;
-        this.setRayLength(intersectionDistance);
+        })
+        const intersectionDistance = intersectionResult?.intersection?.distance ?? maxDistance
+        this.setRayLength(intersectionDistance)
     }
 
     private updateSpheresAndPlayer(): void {
-        const now = performance.now();
-        const lastUpdate = this.lastUpdate ?? now;
-        const deltaTime = (now - lastUpdate) / 1000;
-        this.lastUpdate = now;
+        const now = performance.now()
+        const lastUpdate = this.lastUpdate ?? now
+        const deltaTime = (now - lastUpdate) / 1000
+        this.lastUpdate = now
 
-        const maxDeltaTime = 10 / 1000;
-        let remainingDeltaTime = deltaTime;
+        const maxDeltaTime = 10 / 1000
+        let remainingDeltaTime = deltaTime
         while (remainingDeltaTime > 0) {
-            const localDeltaTime = Math.min(remainingDeltaTime, maxDeltaTime);
-            this.updateSpheres(localDeltaTime);
-            remainingDeltaTime -= localDeltaTime;
+            const localDeltaTime = Math.min(remainingDeltaTime, maxDeltaTime)
+            this.updateSpheres(localDeltaTime)
+            remainingDeltaTime -= localDeltaTime
         }
-        this.updatePlayer(deltaTime);
+        this.updatePlayer(deltaTime)
     }
 
     private updateSpheres(deltaTime: number): void {
-        const gravity = 10;
+        const gravity = 10
 
         for (const sphere of this.spheres) {
-            sphere.collider.center.addScaledVector(sphere.velocity, deltaTime);
-            sphere.mesh.position.copy(sphere.collider.center);
+            sphere.collider.center.addScaledVector(sphere.velocity, deltaTime)
+            sphere.mesh.position.copy(sphere.collider.center)
 
-            const result = this.voxelmapCollisions.sphereIntersect(sphere.collider);
+            const result = this.voxelmapCollisions.sphereIntersect(sphere.collider)
             if (result) {
-                sphere.velocity.addScaledVector(result.normal, -result.normal.dot(sphere.velocity) * 1.5);
-                sphere.collider.center.add(result.normal.multiplyScalar(result.depth));
+                sphere.velocity.addScaledVector(result.normal, -result.normal.dot(sphere.velocity) * 1.5)
+                sphere.collider.center.add(result.normal.multiplyScalar(result.depth))
             } else {
-                sphere.velocity.y -= gravity * deltaTime;
+                sphere.velocity.y -= gravity * deltaTime
             }
 
-            const damping = Math.exp(-0.5 * deltaTime) - 1;
-            sphere.velocity.addScaledVector(sphere.velocity, damping);
+            const damping = Math.exp(-0.5 * deltaTime) - 1
+            sphere.velocity.addScaledVector(sphere.velocity, damping)
         }
     }
 
@@ -315,50 +325,50 @@ export class PhysicsEngine { //extends TestBase {
                     considerAsBlocking: true,
                     exportAsList: true,
                 },
-            }
-        );
+            },
+        )
 
-        this.player.container.position.copy(entityCollisionOutput.position);
-        this.player.velocity.copy(entityCollisionOutput.velocity);
+        this.player.container.position.copy(entityCollisionOutput.position)
+        this.player.velocity.copy(entityCollisionOutput.velocity)
 
-        let movementSpeed = PLAYER_SPEED;
+        let movementSpeed = PLAYER_SPEED
         if (entityCollisionOutput.isOnGround) {
-            let isMoving = false;
-            const directiond2d = new THREE.Vector2(0, 0);
+            let isMoving = false
+            const directiond2d = new THREE.Vector2(0, 0)
             if (this.keysPressed.has('ShiftLeft')) {
-                movementSpeed = PLAYER_SPEED*2
+                movementSpeed = PLAYER_SPEED * 2
             }
             if (this.keysPressed.has('KeyW')) {
-                isMoving = true;
-                directiond2d.y++;
+                isMoving = true
+                directiond2d.y++
             }
             if (this.keysPressed.has('KeyS')) {
-                isMoving = true;
-                directiond2d.y--;
+                isMoving = true
+                directiond2d.y--
             }
             if (this.keysPressed.has('KeyA')) {
-                isMoving = true;
-                directiond2d.x--;
+                isMoving = true
+                directiond2d.x--
             }
             if (this.keysPressed.has('KeyD')) {
-                isMoving = true;
-                directiond2d.x++;
+                isMoving = true
+                directiond2d.x++
             }
             if (this.keysPressed.has('Space')) {
-                this.player.velocity.y = 20;
+                this.player.velocity.y = 20
             }
-            this.keysPressed.clear();
+            this.keysPressed.clear()
 
             if (isMoving) {
-                const cameraFront = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).setY(0).normalize();
-                const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).setY(0).normalize();
+                const cameraFront = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).setY(0).normalize()
+                const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).setY(0).normalize()
 
-                directiond2d.normalize().multiplyScalar(movementSpeed);
-                this.player.velocity.x = cameraRight.x * directiond2d.x + cameraFront.x * directiond2d.y;
-                this.player.velocity.z = cameraRight.z * directiond2d.x + cameraFront.z * directiond2d.y;
+                directiond2d.normalize().multiplyScalar(movementSpeed)
+                this.player.velocity.x = cameraRight.x * directiond2d.x + cameraFront.x * directiond2d.y
+                this.player.velocity.z = cameraRight.z * directiond2d.x + cameraFront.z * directiond2d.y
             } else {
-                this.player.velocity.x = 0;
-                this.player.velocity.z = 0;
+                this.player.velocity.x = 0
+                this.player.velocity.z = 0
             }
         }
     }
@@ -367,7 +377,7 @@ export class PhysicsEngine { //extends TestBase {
         this.voxelmapCollider.setChunk(chunkId, {
             ...voxelsChunkData,
             isFull: false,
-        });
+        })
     }
 
     // private async displayMap(): Promise<void> {
@@ -407,8 +417,8 @@ export class PhysicsEngine { //extends TestBase {
     // }
 
     private setRayLength(length: number): void {
-        this.ray.mesh.position.set(0, 0.5 * length, 0);
-        this.ray.mesh.scale.set(1, length, 1);
-        this.ray.intersectionMesh.position.set(0, length, 0);
+        this.ray.mesh.position.set(0, 0.5 * length, 0)
+        this.ray.mesh.scale.set(1, length, 1)
+        this.ray.intersectionMesh.position.set(0, length, 0)
     }
 }

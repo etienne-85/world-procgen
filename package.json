@@ -1,15 +1,19 @@
 {
-  "name": "world-test-app",
+  "name": "world-gen-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck": "tsc --build",
+    "lint": "eslint . --ext .ts && prettier . --check && npm run typecheck",
+    "format": "prettier . --write && eslint . --fix --ext .ts",
     "preview": "vite preview"
   },
   "devDependencies": {
     "@tweakpane/core": "^2.0.5",
+    "prettier": "^3.5.3",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
   },

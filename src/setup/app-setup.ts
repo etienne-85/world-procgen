@@ -1,18 +1,18 @@
-import { asVect2, BlockType, DataChunkStub, parseChunkKey, parseThreeStub, WorldGlobals, WorldModules } from '@aresrpg/aresrpg-world';
-import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../../aresrpg-world/test/configs/blocks_mappings';
-import { getWorldDemoEnv } from '../../../aresrpg-world/test/configs/world_demo_setup';
-import { SCHEMATICS_FILES_INDEX } from '../assets/schematics_index';
-import { init_voxel_engine } from './engine-setup';
-import { init_graphics } from './graphics-setup';
-import { Vector3 } from 'three';
-import { get_board_provider, init_lod_blocks_provider, initGlobalPurposeWorkerpool, initWorldMainProvider } from './world-setup';
-import { PhysicsEngine } from './physics-setup';
-import { init_controls } from '../modules/controls';
-import { AppApi, AppContext, AppState, initThreeStats } from '../app-context';
-import { MAP_POI } from '../config/user-settings.local';
-import { initUIPanel } from './gui-setup';
-import { Minimap } from '../minimap/minimap';
-import { GroundRenderLayer, NoiseRenderLayer } from '../minimap/map-render-layer';
+import { asVect2, BlockType, DataChunkStub, parseChunkKey, parseThreeStub, WorldGlobals, WorldModules } from '@aresrpg/aresrpg-world'
+import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../../aresrpg-world/test/configs/blocks_mappings'
+import { getWorldDemoEnv } from '../../../aresrpg-world/test/configs/world_demo_setup'
+import { SCHEMATICS_FILES_INDEX } from '../assets/schematics_index'
+import { init_voxel_engine } from './engine-setup'
+import { init_graphics } from './graphics-setup'
+import { Vector3, Vector3Like } from 'three'
+import { get_board_provider, init_lod_blocks_provider, initWorldMainProvider } from './world-setup'
+import { PhysicsEngine } from './physics-setup'
+import { init_controls } from '../modules/controls'
+import { AppApi, AppContext, AppState, initThreeStats } from '../app-context'
+import { MAP_POI } from '../config/user-settings.local'
+import { initUIPanel } from './gui-setup'
+import { Minimap } from '../minimap/minimap'
+import { GroundRenderLayer, SpawnRenderLayer, NoiseRenderLayer, SpotsRenderLayer } from '../minimap/map-render-layer'
 
 const populatePOIContext = () => {
     const gotoPOI: Record<string, any> = {}
@@ -58,11 +58,10 @@ const setupProceduralEnv = () => {
  * Chunks
  */
 const setup_chunks_rendering = (voxelmap_viewer: any, disablePatchLod: any) => {
-
     const chunk_data_formatter = (chunk_data: DataChunkStub) => {
         const { metadata, rawdata } = chunk_data
 
-        const id = parseChunkKey(metadata.chunkKey)
+        const id = parseChunkKey(metadata.chunkKey as string) as Vector3Like
         const bounds = parseThreeStub(metadata.bounds)
         const extended_bounds = bounds.clone().expandByScalar(metadata.margin)
         const size = extended_bounds.getSize(new Vector3())
@@ -81,26 +80,19 @@ const setup_chunks_rendering = (voxelmap_viewer: any, disablePatchLod: any) => {
         return engine_chunk
     }
 
-    const world_chunk_renderer = (chunk_data: DataChunkStub,
-        {
-            ignore_collision = true,
-            skip_formatting = false,
-        } = {},
-    ) => {
-        const engine_chunk = skip_formatting
-            ? chunk_data
-            : chunk_data_formatter(chunk_data)
+    const world_chunk_renderer = (chunk_data: DataChunkStub) => {
+        const formatted_chunk = chunk_data_formatter(chunk_data)
 
-        voxelmap_viewer.invalidateChunk(engine_chunk.id)
+        voxelmap_viewer.invalidateChunk(formatted_chunk.id)
         // @ts-ignore
-        voxelmap_viewer.enqueueChunk(engine_chunk.id, engine_chunk.voxels_chunk_data)
-        const patchId = asVect2(engine_chunk.id)
+        voxelmap_viewer.enqueueChunk(formatted_chunk.id, formatted_chunk.voxels_chunk_data)
+        const patchId = asVect2(formatted_chunk.id)
         disablePatchLod(patchId)
         // terrain_viewer.update(renderer)
         // if (!ignore_collision)
         //   // @ts-ignore
         //   physics.voxelmap_collider.setChunk(id, voxels_chunk_data)
-        PhysicsEngine.instance().onChunk(engine_chunk.id, engine_chunk.voxels_chunk_data)
+        PhysicsEngine.instance().onChunk(formatted_chunk.id, formatted_chunk.voxels_chunk_data)
     }
     return world_chunk_renderer
 }
@@ -109,12 +101,16 @@ const setupMinimap = (worldProvider: WorldModules) => {
     const { worldLocalEnv, spawn } = worldProvider
     const minimapContainer = document.querySelector<HTMLCanvasElement>('#minimap') as HTMLCanvasElement
     const patchDim = worldLocalEnv.getPatchDimensions()
-    const noiseSource = spawn.spawnDistributionNoise //spawnDistributionMap.spawnDistributionLaw
-    // noiseSource.params.scaling*=2
-    const noiseRenderLayer = new NoiseRenderLayer(patchDim, noiseSource)
     const groundRenderLayer = new GroundRenderLayer(patchDim, worldProvider)
-    const minimap = new Minimap(minimapContainer, [groundRenderLayer, noiseRenderLayer])
-    return minimap
+    const spawnRenderLayer = new SpawnRenderLayer(patchDim, spawn)
+    const minimap = new Minimap(minimapContainer, [groundRenderLayer, spawnRenderLayer])
+    const noiseSource = spawn.spawnDistributionNoise //spawnDistributionMap.spawnDistributionLaw
+    noiseSource.params.scaling *= 2
+    const spawnMap = spawn.sparseDistributionMap
+    const noiseRenderLayer = new NoiseRenderLayer(patchDim, noiseSource)
+    const spotsRenderLayer = new SpotsRenderLayer(patchDim, spawnMap)
+    const minimap2 = new Minimap(minimapContainer, [spotsRenderLayer, noiseRenderLayer])
+    return { minimap, minimap2 }
 }
 
 export const demo_main_setup = async () => {
@@ -128,7 +124,10 @@ export const demo_main_setup = async () => {
     const { lod_blocks_provider, cancelAllLodTasks } = init_lod_blocks_provider(world_demo_env)
     // Voxels
     const blocks_color_mapping = Object.values(BLOCKS_COLOR_MAPPING)
-    const { voxelmap_viewer, terrain_viewer, heightmap_atlas, clutter_viewer, disablePatchLod, set_water_level } = init_voxel_engine(blocks_color_mapping, lod_blocks_provider)
+    const { voxelmap_viewer, terrain_viewer, heightmap_atlas, clutter_viewer, disablePatchLod } = init_voxel_engine(
+        blocks_color_mapping,
+        lod_blocks_provider,
+    )
     terrain_viewer.setLod(camera.position, 50, camera.far)
     // terrain_viewer.parameters.lod.enabled = true
     terrain_viewer.update(renderer)
@@ -158,24 +157,24 @@ export const demo_main_setup = async () => {
     AppContext.api.add({ resetLod })
     // Board
     const boardBrovider = get_board_provider(world_demo_env, AppState.playerPos)
-    const toggleBoard = () => boardBrovider().then(board => {
-        const { boardData, boardChunks, originalChunks } = board
-        console.log(boardData)
-        const renderBoardChunks = (chunks) => {
-            for (const chunk of chunks) {
+    const toggleBoard = () =>
+        boardBrovider().then(board => {
+            const { boardData, boardChunks, originalChunks } = board
+            console.log(boardData)
+            for (const chunk of boardChunks) {
                 renderWorldChunk(chunk.toStub())
             }
-        }
-        renderBoardChunks(boardChunks)
-        const removeLast = () => {
-            renderBoardChunks(originalChunks)
-            // App.instance.api.toggleBoard = toggleBoard
-            return true
-        }
-        AppApi.toggleBoard = () => removeLast() && toggleBoard()
-    })
+            const removeLast = () => {
+                for (const chunk of originalChunks) {
+                    renderWorldChunk(chunk.toStub())
+                }
+                // App.instance.api.toggleBoard = toggleBoard
+                return true
+            }
+            AppApi.toggleBoard = () => removeLast() && toggleBoard()
+        })
 
-    const boardBtn = AppContext.gui.addButton({ title: `show board` });
+    const boardBtn = AppContext.gui.addButton({ title: `show board` })
     boardBtn.on('click', () => AppApi.toggleBoard())
 
     AppContext.api.add({ resetLod, toggleBoard })
@@ -208,14 +207,3 @@ export const demo_main_setup = async () => {
         worldMainProvider,
     }
 }
-
-
-
-
-
-
-
-
-
-
-

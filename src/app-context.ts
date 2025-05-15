@@ -1,6 +1,6 @@
-import Stats from 'three/examples/jsm/libs/stats.module.js';
-import { Pane } from 'tweakpane';
-import { WebGLRenderer } from 'three';
+import Stats from 'three/examples/jsm/libs/stats.module.js'
+import { Pane } from 'tweakpane'
+import { WebGLRenderer } from 'three'
 
 export class Collection {
     fields = {} as any
@@ -9,13 +9,13 @@ export class Collection {
     }
 }
 
-export const initThreeStats = (renderer: WebGLRenderer) => {
-    const statsContainer = document.body.querySelector("#stats")
+export const initThreeStats = (_renderer: WebGLRenderer) => {
+    const statsContainer = document.body.querySelector('#stats')
 
     if (statsContainer) {
-        const statsFps = new Stats();
-        statsContainer.appendChild(statsFps.dom);
-        statsFps.dom.style.cssText = 'position:relative; cursor:pointer;margin:2px';
+        const statsFps = new Stats()
+        statsContainer.appendChild(statsFps.dom)
+        statsFps.dom.style.cssText = 'position:relative; cursor:pointer;margin:2px'
 
         // const statsDrawCalls = new Stats();
         // statsContainer.appendChild(statsDrawCalls.dom);
@@ -31,14 +31,14 @@ export const initThreeStats = (renderer: WebGLRenderer) => {
         // statsTriangles.showPanel(3);
         // statsTriangles.dom.style.cssText = 'position:relative;cursor:pointer;margin:2px';
 
-        const updateThreeStats = (frameCount: number) => {
+        const updateThreeStats = (_frameCount: number) => {
             // const rendererInfos = renderer.info;
             // if (frameCount % STATS_REFRESH_RATE === 0) {
             //     statsDrawCallsPanel.update(rendererInfos.render.calls, 200);
             //     statsTrianglesPanel.update(rendererInfos.render.triangles, 200);
             // }
 
-            statsFps.update();
+            statsFps.update()
         }
         return { updateThreeStats }
     }
@@ -46,10 +46,9 @@ export const initThreeStats = (renderer: WebGLRenderer) => {
     return { updateThreeStats }
 }
 
-
 export const initGui = () => {
-    const stats = Stats
-    const pane = new Pane();
+    // const stats = Stats
+    const pane = new Pane()
     return pane
 }
 

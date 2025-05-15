@@ -1,10 +1,10 @@
-import * as THREE from 'three';
-import { PerspectiveCamera, Vector3, WebGLRenderer } from 'three';
-import CameraControls from 'camera-controls';
-import { CAMERA_MAX_DISTANCE, CAMERA_MIN_DISTANCE } from '../config/app-settings';
-import { AppState, AppGui } from '../app-context';
+import * as THREE from 'three'
+import { PerspectiveCamera, Vector3, WebGLRenderer } from 'three'
+import CameraControls from 'camera-controls'
+import { CAMERA_MAX_DISTANCE, CAMERA_MIN_DISTANCE } from '../config/app-settings'
+import { AppState, AppGui } from '../app-context'
 
-CameraControls.install({ THREE: THREE });
+CameraControls.install({ THREE: THREE })
 
 export const init_controls = (camera: PerspectiveCamera, renderer: WebGLRenderer) => {
     const cameraControls = new CameraControls(camera, renderer.domElement)

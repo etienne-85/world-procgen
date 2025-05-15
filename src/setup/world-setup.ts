@@ -1,29 +1,38 @@
 import {
     WorldLocals,
     BlocksDataFormat,
-    BoardCacheProvider, BoardProvider,
-    ChunksPolling, WorkerPool,
-    asVect2, getPatchId,
+    BoardCacheProvider,
+    BoardProvider,
+    ChunksPolling,
+    WorkerPool,
+    asVect2,
+    getPatchId,
     BlocksTask,
     createWorldModules,
     BlockType,
-} from '@aresrpg/aresrpg-world';
-import { chunksWsClient } from '../../../aresrpg-world/test/utils/chunks_over_ws_client';
-import { Vector2, Vector3 } from 'three';
+    DataChunkStub,
+} from '@aresrpg/aresrpg-world'
+import { chunksWsClient } from '../../../aresrpg-world/test/utils/chunks_over_ws_client'
+import { Vector2, Vector3 } from 'three'
 import workerUrl from '@aresrpg/aresrpg-world/worker?url'
-import { AppState } from '../app-context';
-import { floatToVect2Array } from '../utils/utils';
+import { AppState } from '../app-context'
+import { floatToVect2Array } from '../utils/utils'
+import { ChunkMetadata, ChunkStub } from '../../../aresrpg-world/src/datacontainers/ChunkContainer'
 
 /**
-* Polling chunks either from remote or local source
-*/
+ * Polling chunks either from remote or local source
+ */
 
-const externalWorkerProvider = () => new Worker(workerUrl, { type: "module", name: 'external-worker' })
+const externalWorkerProvider = () => new Worker(workerUrl, { type: 'module', name: 'external-worker' })
 
-export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_chunk, useExternalWorker = false) => {
+export const init_chunks_polling_service = (
+    world_env: WorldLocals,
+    on_remote_chunk: (chunkStub: ChunkStub<ChunkMetadata>) => any,
+    useExternalWorker = false,
+) => {
     const patchViewRanges = {
         near: 2,
-        far: 4
+        far: 4,
     }
     const chunksVerticalRange = world_env.rawSettings.chunks.verticalRange
     let is_remote_available = false
@@ -44,9 +53,7 @@ export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_ch
         })
         // fallback to using local source if failing
         .catch(() => {
-            console.warn(
-                `chunks stream client failed to start on ${WS_URL}, fallbacking to local gen `,
-            )
+            console.warn(`chunks stream client failed to start on ${WS_URL}, fallbacking to local gen `)
 
             // init workerpool to produce chunks locally
             chunks_workerpool.initPoolEnv(4, world_env, useExternalWorker ? externalWorkerProvider : undefined).then(() => {
@@ -62,12 +69,12 @@ export const init_chunks_polling_service = (world_env: WorldLocals, on_remote_ch
             const view_pos = getPatchId(asVect2(current_pos), patch_dims)
             const view_range = getPatchId(new Vector2(view_dist), patch_dims).x
             const chunks_tasks = chunks_polling.pollChunks(view_pos, view_range)
-            let pendingTasks = []
+            let pendingTasks: Promise<DataChunkStub[]>[] = []
             if (is_remote_available) {
                 const view_state = { viewPos: view_pos, viewRange: view_range }
                 requestChunkOverWs(view_state)
             } else {
-                pendingTasks = chunks_tasks?.map(task => task.delegate(chunks_workerpool))
+                pendingTasks = chunks_tasks?.map(task => task.delegate(chunks_workerpool)) || []
             }
             return pendingTasks
         }
@@ -97,7 +104,7 @@ export const fake_lod_data_provider = (inputSamples: Float32Array) => {
     }
     const map_pos_type = (pos: Vector2) => {
         const { x, y } = pos.round()
-        const tolerance = 2 
+        const tolerance = 2
         const isGrid = Math.abs(x) % 128 <= tolerance || Math.abs(y) % 128 <= tolerance
         return isGrid ? BlockType.SAND : BlockType.SNOW
     }
@@ -125,7 +132,8 @@ export const init_lod_blocks_provider = (world_demo_env: WorldLocals) => {
         const sampledPos = new Vector2(positions_batch[0], positions_batch[1])
         const { playerPos } = AppState
         const dist = sampledPos.distanceTo(asVect2(playerPos))
-        const blocks_request = dist < 5000 ? new BlocksTask().peakPositions(positions_batch) : new BlocksTask().groundPositions(positions_batch)
+        const blocks_request =
+            dist < 5000 ? new BlocksTask().peakPositions(positions_batch) : new BlocksTask().groundPositions(positions_batch)
         blocks_request.processingParams.dataFormat = BlocksDataFormat.FloatArrayXZ
         // console.log(`pending tasks: ${lod_dedicated_workerpool.processingQueue.length}`)
         const batch_result = await blocks_request.delegate(lod_dedicated_workerpool)
@@ -140,18 +148,13 @@ export const get_board_provider = (worldEnv: WorldLocals, boardPos: Vector3) => 
 
     const buildBoard = async () => {
         const cache_prov = new BoardCacheProvider(board_dedicated_worker_pool, worldEnv)
-        const board_processor = new BoardProvider(
-            boardPos,
-            cache_prov,
-            worldEnv
-        )
+        const board_processor = new BoardProvider(boardPos, cache_prov, worldEnv)
 
         const board = await board_processor.genBoardContent()
 
         const boardChunks = board_processor.overrideOriginalChunksContent(board.chunk)
         const originalChunks = board_processor.restoreOriginalChunksContent()
         const boardData = board.patch.toStub()
-        boardData.elevation = board_processor.boardElevation
 
         return { boardData, boardChunks, originalChunks }
     }
@@ -160,7 +163,6 @@ export const get_board_provider = (worldEnv: WorldLocals, boardPos: Vector3) => 
 
 // export type MapDataProvider = (input: Box2) => SpawnChunk[]
 // export type AsyncMapDataProvider = (input: Box2) => Promise<(SpawnData | DiscardedSlot)[]>
-
 
 // async function board_chunks_provider(position = new Vector3(), board_dedicated_worker_pool) {
 //     const cache_prov = new BoardCacheProvider(board_dedicated_worker_pool, worldDemoEnv)

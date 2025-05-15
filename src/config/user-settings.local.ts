@@ -1,4 +1,5 @@
 export const MAP_POI = {
+    village: { x: -685, y: 120, z: -1350 },
     hole1: { x: 451, y: 130, z: -584 },
     hole2: { x: 730, y: 150, z: -1330 },
     hole3: { x: 720, y: 192, z: -1340 },
@@ -16,4 +17,3 @@ export const MAP_POI = {
     landPlane: { x: -420, y: 210, z: 47 },
     bug6: { x: -410, y: 194, z: 127 },
 }
-

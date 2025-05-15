@@ -1,5 +1,4 @@
-import { Vector2 } from "three";
-
+import { Vector2 } from 'three'
 
 export class RenderPatchHelper {
     canvasContainer: HTMLCanvasElement
@@ -8,10 +7,10 @@ export class RenderPatchHelper {
     constructor(width: number, height: number) {
         // this.instanceId = Minimap.instances.length
         // Minimap.instances.push(this)
-        this.canvasContainer = document.createElement("canvas");
+        this.canvasContainer = document.createElement('canvas')
         this.canvasContainer.width = width
         this.canvasContainer.height = height
-        this.canvasContext = this.canvasContainer.getContext("2d") as CanvasRenderingContext2D;
+        this.canvasContext = this.canvasContainer.getContext('2d') as CanvasRenderingContext2D
     }
 
     clear() {
@@ -21,30 +20,37 @@ export class RenderPatchHelper {
         canvasContext.clearRect(0, 0, width, height)
     }
 
+    background(color: string) {
+        const { canvasContainer, canvasContext } = this
+        const { width, height } = canvasContainer
+        canvasContext.fillStyle = color
+        canvasContext.fillRect(0, 0, width, height)
+    }
+
     drawPoint(point: Vector2, { color, radius } = { color: 'black', radius: 1 }) {
         const { canvasContext } = this
         canvasContext.fillStyle = color
-        canvasContext.beginPath();
-        canvasContext.arc(point.x, point.y, radius, 0, Math.PI * 2); // Draw circle
-        canvasContext.fill(); // Fill the circle
+        canvasContext.beginPath()
+        canvasContext.arc(point.x, point.y, radius, 0, Math.PI * 2) // Draw circle
+        canvasContext.fill() // Fill the circle
     }
 
     drawText(point: Vector2, num: number) {
         const { canvasContext } = this
         const textSize = 22
-        canvasContext.font = `${textSize}px Arial`;
-        canvasContext.fillStyle = 'white';
-        const offset = 8//new Vector2(-1, 1)//.multiplyScalar(num/4)
-        canvasContext.fillText(num + '', point.x - 1.6 * offset, point.y + offset);
+        canvasContext.font = `${textSize}px Arial`
+        canvasContext.fillStyle = 'white'
+        const offset = 8 //new Vector2(-1, 1)//.multiplyScalar(num/4)
+        canvasContext.fillText(num + '', point.x - 1.6 * offset, point.y + offset)
     }
 
     drawCircle(center: Vector2, radius: number) {
         const { canvasContext } = this
-        canvasContext.strokeStyle = 'red';
+        canvasContext.strokeStyle = 'red'
         canvasContext.lineWidth = 2
-        canvasContext.beginPath();
-        canvasContext.arc(center.x, center.y, radius, 0, 2 * Math.PI);
-        canvasContext.stroke();
+        canvasContext.beginPath()
+        canvasContext.arc(center.x, center.y, radius, 0, 2 * Math.PI)
+        canvasContext.stroke()
     }
 
     toStub() {
@@ -125,7 +131,6 @@ export class RenderPatchHelper {
 //     }
 
 // }
-
 
 // export interface PatchProvider {
 //     patchDataIndex: Record<string, PatchDataStub>
