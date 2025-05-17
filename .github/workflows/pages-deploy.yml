@@ -37,6 +37,8 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
+      - name: Patch with custom version of world lib
+        run: rm -rf node_modules/@aresrpg/aresrpg-world/* && tar -xf libs/aresrpg-world-npm.tar.xz -C node_modules/@aresrpg/aresrpg-world
       - name: Build
         run: npm run build
       - name: Setup Pages
