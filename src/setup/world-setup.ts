@@ -12,12 +12,11 @@ import {
     BlockType,
     DataChunkStub,
 } from '@aresrpg/aresrpg-world'
-import { chunksWsClient } from '../../../aresrpg-world/test/utils/chunks_over_ws_client'
 import { Vector2, Vector3 } from 'three'
 import workerUrl from '@aresrpg/aresrpg-world/worker?url'
 import { AppState } from '../app-context'
 import { floatToVect2Array } from '../utils/utils'
-import { ChunkMetadata, ChunkStub } from '../../../aresrpg-world/src/datacontainers/ChunkContainer'
+import { chunksWsClient } from '../utils/chunks_over_ws_client'
 
 /**
  * Polling chunks either from remote or local source
@@ -27,7 +26,7 @@ const externalWorkerProvider = () => new Worker(workerUrl, { type: 'module', nam
 
 export const init_chunks_polling_service = (
     world_env: WorldLocals,
-    on_remote_chunk: (chunkStub: ChunkStub<ChunkMetadata>) => any,
+    on_remote_chunk: (chunkStub: DataChunkStub) => any,
     useExternalWorker = false,
 ) => {
     const patchViewRanges = {

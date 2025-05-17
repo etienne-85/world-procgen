@@ -8,3 +8,6 @@ export const floatToVect2Array = (inputData: Float32Array) => {
     }
     return outputData
 }
+
+export const typesNumbering = (types: Record<string, number>, offset = 0) =>
+    Object.keys(types).forEach((key, i) => (types[key] = offset + i))

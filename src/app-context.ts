@@ -67,6 +67,7 @@ export class AppContext {
     static get api() {
         return this.instance._api
     }
+
     static get state() {
         return this.instance._state
     }

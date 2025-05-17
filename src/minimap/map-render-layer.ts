@@ -1,13 +1,22 @@
 import { Box2, Vector2 } from 'three'
 import { RenderPatchHelper } from './render-patch'
-import { Noise2dSampler } from '../../../aresrpg-world/src/procgen/NoiseSampler'
-import { patchRangeToBounds } from '../../../aresrpg-world/src/utils/patch_chunk'
-import { asVect2, BlockType, getPatchId, GroundPatch, Spawn, WorldModules } from '@aresrpg/aresrpg-world'
-import { PatchDataStub, SparseDataPatch, SparseDataStub } from '../../../aresrpg-world/src/datacontainers/PatchContainer'
+import {
+    asVect2,
+    BlockType,
+    getPatchId,
+    GroundPatch,
+    Noise2dSampler,
+    PatchDataStub,
+    patchRangeToBounds,
+    SparseDataPatch,
+    SparseDataStub,
+    SparseDistributionMap,
+    Spawn,
+    SpawnData,
+    WorldModules,
+} from '@aresrpg/aresrpg-world'
 import { MapDatasource, NoisePatch, PatchCache, SpawnDataPatch, SpawnSlot, SpawnSpotsPatch } from './map-datasource'
-import { BLOCKS_COLOR_MAPPING } from '../../../aresrpg-world/test/configs/blocks_mappings'
-import { SparseDistributionMap } from '../../../aresrpg-world/src/procgen/SparseDistributionMap'
-import { SpawnData } from '../../../aresrpg-world/src/factory/ChunksFactory'
+import { BLOCKS_COLOR_MAPPING } from '../config/procedural/blocks_mappings'
 
 // type MapCacheData = {
 //     dataStub: PatchDataStub
@@ -61,8 +70,8 @@ export abstract class MapRenderLayer {
         offscreenCanvas.width = this.mapDimensions.x
         offscreenCanvas.height = this.mapDimensions.y
         const { min, max } = mapDatasource.patchRange
-        for (let y = min.y; y <= max.y; y++) {
-            for (let x = min.x; x <= max.x; x++) {
+        for (let { y } = min; y <= max.y; y++) {
+            for (let { x } = min; x <= max.x; x++) {
                 const patchKey = `${x}:${y}`
                 const offset = new Vector2(x - min.x, y - min.y).multiply(patchDim)
                 // const offset = new Vector2(5,2).multiply(patchDim)

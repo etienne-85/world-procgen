@@ -1,6 +1,5 @@
-import { asVect2, getChunkId } from '@aresrpg/aresrpg-world'
+import { asVect2, getChunkId, WorldLocals } from '@aresrpg/aresrpg-world'
 import { AppContext, AppState } from '../app-context'
-import { WorldLocals } from '../../../aresrpg-world/src'
 
 // const populatePOIpanel = () => {
 

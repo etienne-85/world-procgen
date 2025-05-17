@@ -13,8 +13,8 @@ import {
 import { CHUNK_AXIS_ORDER, CHUNK_SIZE, CHUNKS_RANGE, WORLD_ALTITUDE_RANGE } from '../config/app-settings'
 import { Color } from 'three'
 import { fake_lod_data_provider } from './world-setup'
-import { BlockMapping, SPRITES_CONF_MAPPING } from '../../../aresrpg-world/test/configs/blocks_mappings'
-import { PatchId } from '../../../aresrpg-world/src/utils/common_types'
+import { BlockMapping, SPRITES_CONF_MAPPING } from '../config/procedural/blocks_mappings'
+import { PatchId } from '@aresrpg/aresrpg-world'
 
 const USE_FAKE_LOD_DATA = false
 

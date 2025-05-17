@@ -1,7 +1,7 @@
 import { Vector2 } from 'three'
 import { PATCH_SIZE } from '../config/app-settings'
-import { LinkedList } from '../../../aresrpg-world/dist/datacontainers/LinkedList'
 import { MapRenderLayer } from './map-render-layer'
+import { LinkedList } from '@aresrpg/aresrpg-world'
 
 // const PATCH_VIEW_RANGE = 4
 // const MAP_RADIUS = 256

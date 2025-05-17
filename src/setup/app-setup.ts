@@ -1,11 +1,9 @@
-import { asVect2, BlockType, DataChunkStub, parseChunkKey, parseThreeStub, WorldGlobals, WorldModules } from '@aresrpg/aresrpg-world'
-import { BLOCKS_COLOR_MAPPING, ExtBlock } from '../../../aresrpg-world/test/configs/blocks_mappings'
-import { getWorldDemoEnv } from '../../../aresrpg-world/test/configs/world_demo_setup'
+import { asVect2, DataChunkStub, parseChunkKey, parseThreeStub, WorldGlobals, WorldModules } from '@aresrpg/aresrpg-world'
 import { SCHEMATICS_FILES_INDEX } from '../assets/schematics_index'
 import { init_voxel_engine } from './engine-setup'
 import { init_graphics } from './graphics-setup'
 import { Vector3, Vector3Like } from 'three'
-import { get_board_provider, init_lod_blocks_provider, initWorldMainProvider } from './world-setup'
+import { get_board_provider, init_chunks_polling_service, init_lod_blocks_provider, initWorldMainProvider } from './world-setup'
 import { PhysicsEngine } from './physics-setup'
 import { init_controls } from '../modules/controls'
 import { AppApi, AppContext, AppState, initThreeStats } from '../app-context'
@@ -13,6 +11,9 @@ import { MAP_POI } from '../config/user-settings.local'
 import { initUIPanel } from './gui-setup'
 import { Minimap } from '../minimap/minimap'
 import { GroundRenderLayer, SpawnRenderLayer, NoiseRenderLayer, SpotsRenderLayer } from '../minimap/map-render-layer'
+import { getWorldDemoEnv } from '../config/procedural/world_demo_setup'
+import { BLOCKS_COLOR_MAPPING } from '../config/procedural/blocks_mappings'
+import { VIEW_DIST } from '../config/app-settings'
 
 const populatePOIContext = () => {
     const gotoPOI: Record<string, any> = {}
@@ -46,8 +47,8 @@ const setupProceduralEnv = () => {
     // world_demo_env.rawSettings.biomes.repartition.centralHalfSegment = 0.07
     const worldGlobals = new WorldGlobals()
     // worldGlobals.debug.logs = true
-    worldGlobals.debug.patch.borderHighlightColor = ExtBlock.DBG_LIGHT
-    worldGlobals.debug.schematics.missingBlockType = BlockType.HOLE
+    // worldGlobals.debug.patch.borderHighlightColor = ExtBlock.DBG_LIGHT
+    // worldGlobals.debug.schematics.missingBlockType = BlockType.HOLE
     worldEnv.rawSettings.globals = worldGlobals.export()
     // worldEnv.rawSettings.distribution.mapPatchRange = 1
     // worldEnv.rawSettings.distributionMapPeriod = 1
@@ -140,6 +141,25 @@ export const demo_main_setup = async () => {
     PhysicsEngine.instance(scene, camera)
     // Chunks rendering
     const renderWorldChunk = setup_chunks_rendering(voxelmap_viewer, disablePatchLod)
+    // Chunks polling
+    const { poll_chunks, get_visible_chunk_ids } = init_chunks_polling_service(world_demo_env, renderWorldChunk)
+
+    const on_chunks_polling = () => {
+        const current_pos = PhysicsEngine.instance().player.container.position
+        const scheduled_tasks = poll_chunks(current_pos, VIEW_DIST)
+        if (scheduled_tasks) {
+            voxelmap_viewer.setVisibility(get_visible_chunk_ids())
+            scheduled_tasks.forEach(chunks_task =>
+                chunks_task.then(chunks => {
+                    chunks?.forEach(local_chunk => {
+                        terrain_viewer.setLod(camera.position, 50, camera.far)
+                        heightmap_atlas.update(renderer)
+                        renderWorldChunk(local_chunk)
+                    })
+                }),
+            )
+        }
+    }
     // App context
     populateAppContext()
     // UI
@@ -191,19 +211,20 @@ export const demo_main_setup = async () => {
     const { updateThreeStats } = initThreeStats(renderer)
 
     return {
-        world_demo_env,
+        // world_demo_env,
         renderer,
         scene,
         camera,
         terrain_viewer,
         clutter_viewer,
         heightmap_atlas,
-        voxelmap_viewer,
-        renderWorldChunk,
+        // voxelmap_viewer,
+        // renderWorldChunk,
         cameraControls,
         follow_player,
         updateThreeStats,
         refreshUIPanel,
         worldMainProvider,
+        on_chunks_polling,
     }
 }

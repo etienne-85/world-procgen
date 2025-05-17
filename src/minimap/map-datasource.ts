@@ -1,17 +1,18 @@
 import { Vector2 } from 'three'
-import { IdenticalDataAdapter } from '../../../aresrpg-world/src/datacontainers/BlockDataAdapter'
 import {
+    IdenticalDataAdapter,
+    Noise2dSampler,
     PatchDataContainer,
     PatchDataStub,
+    PatchKey,
+    PatchPolling,
+    SlotSize,
     SparseDataPatch,
     SparseDataStub,
-} from '../../../aresrpg-world/src/datacontainers/PatchContainer'
-import { Noise2dSampler } from '../../../aresrpg-world/src/procgen/NoiseSampler'
-import { PatchKey } from '../../../aresrpg-world/src/utils/common_types'
-import { PatchPolling } from '../../../aresrpg-world/src/tools/PatchPolling'
-import { SlotSize, SparseDistributionMap } from '../../../aresrpg-world/src/procgen/SparseDistributionMap'
-import { SpawnData } from '../../../aresrpg-world/src/factory/ChunksFactory'
-import { Spawn } from '@aresrpg/aresrpg-world'
+    SparseDistributionMap,
+    Spawn,
+    SpawnData,
+} from '@aresrpg/aresrpg-world'
 
 export class NoisePatch extends PatchDataContainer<number> {
     rawData = new Uint8Array(this.dataSize)

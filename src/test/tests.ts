@@ -1,6 +1,5 @@
-import { BlocksTask, WorkerPool, WorldLocals, SpawnChunk, WorldTasksHandlers, createWorldModules } from '@aresrpg/aresrpg-world'
+import { BlocksTask, WorkerPool, WorldLocals, SpawnChunk, WorldTasksHandlers, createWorldModules, ItemsTask } from '@aresrpg/aresrpg-world'
 import { Box2, Vector2 } from 'three'
-import { ItemsTask } from '../../../aresrpg-world/src'
 
 const setupTestEnv = async (worldEnv: WorldLocals) => {
     const testWorkerpool = new WorkerPool('tests')
